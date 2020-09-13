@@ -56,7 +56,7 @@ public class PipeHandler {
     private void fire(String message){
         String[] splt = message.split(";");
         String key = splt[0];
-        String value = splt[1];
+        String value = splt.length > 1 ? splt[1] : null;
         actions.get(key).each((r) -> {r.accept(value);});
     }
 

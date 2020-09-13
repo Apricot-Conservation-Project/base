@@ -41,7 +41,11 @@ public class AABase extends Plugin{
 
             });
 
-            hubPipe.on("say", Call::sendMessage);
+            hubPipe.on("say", (e) ->{
+                if(e != null){
+                    Call.sendMessage(e);
+                }
+            });
 
             hubPipe.on("donation", (information) ->{
                 String[] info = information.split(",");
