@@ -1,4 +1,4 @@
-#Assimilation by Recessive
+# {AA} Base plugin
 
 No one is allowed to use this plugin without permission.
 

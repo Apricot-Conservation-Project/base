@@ -13,10 +13,16 @@ public class PipeHandler {
     private String pipeName;
     private RandomAccessFile pipe;
 
+    public boolean invalid = false;
+
     private HashMap<String, Array<Consumer <String>>> actions = new HashMap<>();
 
     public PipeHandler(String pipeName){
         this.pipeName = pipeName;
+        if(pipeName == null){
+            this.invalid = true;
+            return;
+        }
         try {
             this.pipe = new RandomAccessFile(pipeName, "rw");
             Log.info("Connected to pipe " + pipeName);

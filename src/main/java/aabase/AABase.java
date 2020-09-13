@@ -8,6 +8,8 @@ import mindustry.game.*;
 import mindustry.gen.*;
 import mindustry.plugin.Plugin;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.*;
 
 import static mindustry.Vars.*;
@@ -22,30 +24,35 @@ public class AABase extends Plugin{
 
     private final DBInterface networkDB = new DBInterface("player_data", true);
 
-
+    private final HashMap<String, Player> uuidMapping = new HashMap<>();
 
     private final StringHandler stringHandler = new StringHandler();
-    private final PipeHandler hubPipe = new PipeHandler("../network-files/hubPIPEassim");
+    private final PipeHandler hubPipe = new PipeHandler(readConfig("data/pipe.txt"));
 
     //register event handlers and create variables in the constructor
     public void init(){
 
         networkDB.connect("../network-files/network_data.db");
 
-        hubPipe.on("test", (e) ->{
-            Log.info("Recieved test from hub with argument: " + e);
-            Call.sendMessage("Pipe test");
+        if(!hubPipe.invalid){
+            hubPipe.on("test", (e) ->{
+                Log.info("Recieved test from hub with argument: " + e);
+                Call.sendMessage("Pipe test");
 
-        });
+            });
 
-        hubPipe.on("say", Call::sendMessage);
+            hubPipe.on("say", Call::sendMessage);
 
-        hubPipe.on("donation", (information) ->{
-            String[] info = information.split(",");
-            updateDonator(info[0], Integer.parseInt(info[1]));
-        });
+            hubPipe.on("donation", (information) ->{
+                String[] info = information.split(",");
+                updateDonator(info[0], Integer.parseInt(info[1]));
+            });
 
-        hubPipe.beginRead();
+            hubPipe.beginRead();
+        }else{
+            Log.info("Pipe not found. Assuming this server is the hub server");
+        }
+
 
 
 
@@ -85,6 +92,8 @@ public class AABase extends Plugin{
 
             networkDB.loadRow(event.player.uuid);
 
+            uuidMapping.put(event.player.uuid, event.player);
+
 
 
             // Check for donation expiration
@@ -119,6 +128,33 @@ public class AABase extends Plugin{
     @Override
     public void registerServerCommands(CommandHandler handler){
 
+        handler.register("setplaytime", "<uuid> <playtime>", "Set the play time of a player", args -> {
+            int newTime;
+            try{
+                newTime = Integer.parseInt(args[1]);
+            }catch(NumberFormatException e){
+                Log.info("Invalid playtime input '" + args[1] + "'");
+                return;
+            }
+            if(!networkDB.hasRow(args[0])){
+                Log.info("Invalid uuid: " + args[0]);
+                return;
+            }
+
+            Player ply = uuidMapping.get(args[0]);
+
+            networkDB.loadRow(args[0]);
+            networkDB.safePut(args[0],"playtime", newTime);
+            networkDB.saveRow(args[0]);
+
+            if(!(ply == null)){
+                ply.playTime = newTime;
+                Call.setHudTextReliable(ply.con, "[accent]Play time: [scarlet]" + ply.playTime + "[accent] mins.");
+            }
+            Log.info("Set uuid " + args[0] + " to have play time of " + args[1] + " minutes");
+
+        });
+
         handler.register("endgame", "Ends the game", args ->{
             Call.sendMessage("[scarlet]Server [accent]has force ended the game. Ending in 10 seconds...");
 
@@ -138,6 +174,7 @@ public class AABase extends Plugin{
 
 
         handler.register("crash", "<name/uuid>", "Crashes the name/uuid", args ->{
+
             for(Player player : playerGroup.all()){
                 if(player.uuid.equals(args[0]) || Strings.stripColors(player.name).equals(args[0])){
                     player.sendMessage(null);
@@ -153,8 +190,15 @@ public class AABase extends Plugin{
     @Override
     public void registerClientCommands(CommandHandler handler) {
 
-        handler.<Player>register("d", "<key>", "Activate a donation key", (args, player) ->{
-            player.sendMessage("[accent]Go to [scarlet]/hub [accent]to activate your key");
+        if(!hubPipe.invalid){
+            handler.<Player>register("d", "<key>", "Activate a donation key", (args, player) ->{
+                player.sendMessage("[accent]Go to [scarlet]/hub [accent]to activate your key");
+            });
+        }
+
+
+        handler.<Player>register("assim", "Connect to the Assimilation server", (args, player) -> {
+            Call.onConnect(player.con, "aamindustry.play.ai", 6568);
         });
 
         handler.<Player>register("discord", "Prints the discord link", (args, player) -> {
@@ -237,15 +281,9 @@ public class AABase extends Plugin{
 
     void savePlayerData(String uuid){
         Log.info("Saving " + uuid + " data...");
-        Player player = null;
-        for(Player ply : playerGroup.all()){
-            if(ply.uuid.equals(uuid)){
-                player = ply;
-                break;
-            }
-        }
+        Player player = uuidMapping.get(uuid);
         networkDB.loadRow(uuid);
-        networkDB.safePut(uuid,"playTime", player.playTime);
+        if((int) networkDB.safeGet(uuid, "playTime") < player.playTime) networkDB.safePut(uuid,"playTime", player.playTime);
         networkDB.saveRow(uuid);
     }
 
@@ -254,12 +292,19 @@ public class AABase extends Plugin{
     boolean donationExpired(String uuid){ return (int) networkDB.safeGet(uuid,"donateExpire") <= System.currentTimeMillis()/1000; }
 
     public void updateDonator(String uuid, int level){
+        uuidMapping.get(uuid).donateLevel = level;
+    }
 
-        for(Player player : playerGroup.all()){
-            if(player.uuid.equals(uuid)){
-                player.donateLevel = level;
-                break;
-            }
+    public String readConfig(String name){
+        String s = null;
+        try {
+            File myObj = new File(name);
+            Scanner myReader = new Scanner(myObj);
+            s = myReader.nextLine();
+            myReader.close();
+        } catch (FileNotFoundException e) {
+            System.out.println("File not found.");
         }
+        return s;
     }
 }
