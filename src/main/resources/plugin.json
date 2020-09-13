@@ -1,7 +1,7 @@
 {
-  "name": "Assimilation",
+  "name": "AABasePlugin",
   "author": "Recessive",
-  "main": "assimilation.Assimilation",
-  "description": "A plugin for the assimilation gamemode",
+  "main": "aabase.AABase",
+  "description": "A base plugin for the {AA} servers",
   "version": 0.0
 }

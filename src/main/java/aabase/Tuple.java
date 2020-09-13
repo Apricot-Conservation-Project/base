@@ -1,4 +1,4 @@
-package assimilation;
+package aabase;
 
 public class Tuple<type1, type2> {
 
