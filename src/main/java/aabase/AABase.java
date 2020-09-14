@@ -25,6 +25,7 @@ public class AABase extends Plugin{
     private final DBInterface networkDB = new DBInterface("player_data", true);
 
     private final HashMap<String, Player> uuidMapping = new HashMap<>();
+    private final HashMap<String, String> rawNames = new HashMap<>();
 
     private final StringHandler stringHandler = new StringHandler();
     private final PipeHandler hubPipe = new PipeHandler(readConfig("data/pipe.txt"));
@@ -97,6 +98,7 @@ public class AABase extends Plugin{
             networkDB.loadRow(event.player.uuid);
 
             uuidMapping.put(event.player.uuid, event.player);
+            rawNames.put(event.player.uuid, event.player.name);
 
 
 
@@ -105,6 +107,7 @@ public class AABase extends Plugin{
             if(dLevel != 0 && donationExpired(event.player.uuid)){
                 event.player.sendMessage("\n[accent]You're donator rank has expired!");
                 networkDB.safePut(event.player.uuid,"donatorLevel", 0);
+                networkDB.safePut(event.player.uuid, "namePrefix", "");
                 dLevel = 0;
             }
 
@@ -113,7 +116,8 @@ public class AABase extends Plugin{
             networkDB.safePut(event.player.uuid,"latestName", event.player.name);
             networkDB.saveRow(event.player.uuid, false);
 
-            event.player.name = stringHandler.donatorMessagePrefix(dLevel) + Strings.stripColors(event.player.name);
+            String prefix = (String) networkDB.safeGet(event.player.uuid, "namePrefix");
+            event.player.name = stringHandler.donatorMessagePrefix(dLevel) + prefix + Strings.stripColors(event.player.name);
 
             event.player.playTime = (int) networkDB.safeGet(event.player.uuid,"playTime");
             event.player.donateLevel = dLevel;
@@ -200,9 +204,20 @@ public class AABase extends Plugin{
             });
         }
 
+        handler.<Player>register("hub", "Connect to the AA hub server", (args, player) -> {
+            Call.onConnect(player.con, "aamindustry.play.ai", 6567);
+        });
 
         handler.<Player>register("assim", "Connect to the Assimilation server", (args, player) -> {
             Call.onConnect(player.con, "aamindustry.play.ai", 6568);
+        });
+
+        handler.<Player>register("plague", "Connect to the Plague server", (args, player) -> {
+            Call.onConnect(player.con, "aamindustry.play.ai", 6569);
+        });
+
+        handler.<Player>register("campaign", "Connect to the Campaign server", (args, player) -> {
+            Call.onConnect(player.con, "aamindustry.play.ai", 6570);
         });
 
         handler.<Player>register("discord", "Prints the discord link", (args, player) -> {
@@ -213,15 +228,33 @@ public class AABase extends Plugin{
             player.sendMessage("[scarlet]" + player.uuid);
         });
 
-        handler.<Player>register("hub", "Connect to the AA hub server", (args, player) -> {
-            Call.onConnect(player.con, "aamindustry.play.ai", 6567);
-        });
+
 
         handler.<Player>register("donate", "Donate to the server", (args, player) -> {
             player.sendMessage("[accent]Donate to gain [green]double xp[accent], the ability to " +
                     "[green]start events[accent] and [green]donator commands[accent]!\n\nYou can donate at:\n" +
                     "[gold]Donator [scarlet]1[accent]: https://shoppy.gg/product/i4PeGjP\n" +
                     "[gold]Donator [scarlet]2[accent]: https://shoppy.gg/product/x1tMDJE\n\nThese links are also on the discord server");
+        });
+
+        handler.<Player>register("color", "[color]", "[sky]Set the color of your name", (args, player) ->{
+            if(player.donateLevel < 1){
+                player.sendMessage("[accent]Only donators have access to this command");
+                return;
+            }
+            if(args.length != 1){
+                player.sendMessage("[accent]Use a mindustry color for this command. For example: [aqua] (aqua is not a valid color, this is just an example)");
+                return;
+            }
+            if(args[0].contains("#") && player.donateLevel < 3){
+                player.sendMessage("[accent]Only " + stringHandler.donatorMessagePrefix(2) + "[accent]can set their name to any color. Use a default mindustry color instead.");
+                return;
+            }
+
+            networkDB.safePut(player.uuid, "namePrefix", args[0], true);
+            player.name = stringHandler.donatorMessagePrefix(player.donateLevel) + args[0] + Strings.stripColors(rawNames.get(player.uuid));
+            Events.fire(new EventType.CustomEvent(new String[]{"newName", player.uuid}));
+            player.sendMessage("[accent]Name color updated.");
         });
 
 
@@ -286,6 +319,8 @@ public class AABase extends Plugin{
     void savePlayerData(String uuid){
         Log.info("Saving " + uuid + " data...");
         Player player = uuidMapping.get(uuid);
+        Log.info(networkDB.safeGet(uuid, "namePrefix"));
+        networkDB.saveRow(uuid);
         networkDB.loadRow(uuid);
         if((int) networkDB.safeGet(uuid, "playTime") < player.playTime) networkDB.safePut(uuid,"playTime", player.playTime);
         networkDB.saveRow(uuid);
