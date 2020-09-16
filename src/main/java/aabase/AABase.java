@@ -24,8 +24,7 @@ public class AABase extends Plugin{
 
     private final DBInterface networkDB = new DBInterface("player_data", true);
 
-    private final HashMap<String, Player> uuidMapping = new HashMap<>();
-    private final HashMap<String, String> rawNames = new HashMap<>();
+    private final HashMap<String, CustomPlayer> uuidMapping = new HashMap<>();
 
     private final StringHandler stringHandler = new StringHandler();
     private final PipeHandler hubPipe = new PipeHandler(readConfig("data/pipe.txt"));
@@ -97,18 +96,20 @@ public class AABase extends Plugin{
 
             networkDB.loadRow(event.player.uuid);
 
-            uuidMapping.put(event.player.uuid, event.player);
-            rawNames.put(event.player.uuid, event.player.name);
 
 
 
             // Check for donation expiration
             int dLevel = (int) networkDB.safeGet(event.player.uuid,"donatorLevel");
             if(dLevel != 0 && donationExpired(event.player.uuid)){
-                event.player.sendMessage("\n[accent]You're donator rank has expired!");
+                Call.onInfoMessage(event.player.con, "\n[accent]You're donator rank has expired!");
                 networkDB.safePut(event.player.uuid,"donatorLevel", 0);
                 networkDB.safePut(event.player.uuid, "namePrefix", "");
                 dLevel = 0;
+            }
+
+            if(!uuidMapping.containsKey(event.player.uuid)){
+                uuidMapping.put(event.player.uuid, new CustomPlayer(event.player, dLevel));
             }
 
             // Save name to database
@@ -121,6 +122,10 @@ public class AABase extends Plugin{
 
             event.player.playTime = (int) networkDB.safeGet(event.player.uuid,"playTime");
             event.player.donateLevel = dLevel;
+
+            if(dLevel > 0){
+                Call.sendMessage(event.player.name + "[accent] has joined the game");
+            }
 
             Call.setHudTextReliable(event.player.con, "[accent]Play time: [scarlet]" + event.player.playTime + "[accent] mins.");
 
@@ -149,7 +154,7 @@ public class AABase extends Plugin{
                 return;
             }
 
-            Player ply = uuidMapping.get(args[0]);
+            Player ply = uuidMapping.get(args[0]).player;
 
             networkDB.loadRow(args[0]);
             networkDB.safePut(args[0],"playtime", newTime);
@@ -205,19 +210,36 @@ public class AABase extends Plugin{
         }
 
         handler.<Player>register("hub", "Connect to the AA hub server", (args, player) -> {
-            Call.onConnect(player.con, "aamindustry.play.ai", 6567);
+            net.pingHost("aamindustry.play.ai", 6567, host ->{
+                Call.onConnect(player.con, "aamindustry.play.ai", 6567);
+            }, e ->{
+                player.sendMessage("[accent]Server offline");
+            });
+
         });
 
         handler.<Player>register("assim", "Connect to the Assimilation server", (args, player) -> {
-            Call.onConnect(player.con, "aamindustry.play.ai", 6568);
+            net.pingHost("aamindustry.play.ai", 6568, host ->{
+                Call.onConnect(player.con, "aamindustry.play.ai", 6568);
+            }, e ->{
+                player.sendMessage("[accent]Server offline");
+            });
         });
 
         handler.<Player>register("plague", "Connect to the Plague server", (args, player) -> {
-            Call.onConnect(player.con, "aamindustry.play.ai", 6569);
+            net.pingHost("aamindustry.play.ai", 6569, host ->{
+                Call.onConnect(player.con, "aamindustry.play.ai", 6569);
+            }, e ->{
+                player.sendMessage("[accent]Server offline");
+            });
         });
 
         handler.<Player>register("campaign", "Connect to the Campaign server", (args, player) -> {
-            Call.onConnect(player.con, "aamindustry.play.ai", 6570);
+            net.pingHost("aamindustry.play.ai", 6570, host ->{
+                Call.onConnect(player.con, "aamindustry.play.ai", 6570);
+            }, e ->{
+                player.sendMessage("[accent]Server offline");
+            });
         });
 
         handler.<Player>register("discord", "Prints the discord link", (args, player) -> {
@@ -246,17 +268,16 @@ public class AABase extends Plugin{
                 player.sendMessage("[accent]Use a mindustry color for this command. For example: [aqua] (aqua is not a valid color, this is just an example)");
                 return;
             }
-            if(args[0].contains("#") && player.donateLevel < 3){
+            if(args[0].contains("#") && player.donateLevel < 2){
                 player.sendMessage("[accent]Only " + stringHandler.donatorMessagePrefix(2) + "[accent]can set their name to any color. Use a default mindustry color instead.");
                 return;
             }
 
             networkDB.safePut(player.uuid, "namePrefix", args[0], true);
-            player.name = stringHandler.donatorMessagePrefix(player.donateLevel) + args[0] + Strings.stripColors(rawNames.get(player.uuid));
+            player.name = stringHandler.donatorMessagePrefix(player.donateLevel) + args[0] + Strings.stripColors(uuidMapping.get(player.uuid).rawName);
             Events.fire(new EventType.CustomEvent(new String[]{"newName", player.uuid}));
             player.sendMessage("[accent]Name color updated.");
         });
-
 
         handler.<Player>register("kill", "[sky]Destroy yourself (donator only)", (args, player) ->{
             if(player.donateLevel < 1){
@@ -318,7 +339,7 @@ public class AABase extends Plugin{
 
     void savePlayerData(String uuid){
         Log.info("Saving " + uuid + " data...");
-        Player player = uuidMapping.get(uuid);
+        Player player = uuidMapping.get(uuid).player;
         Log.info(networkDB.safeGet(uuid, "namePrefix"));
         networkDB.saveRow(uuid);
         networkDB.loadRow(uuid);
@@ -331,7 +352,7 @@ public class AABase extends Plugin{
     boolean donationExpired(String uuid){ return (int) networkDB.safeGet(uuid,"donateExpire") <= System.currentTimeMillis()/1000; }
 
     public void updateDonator(String uuid, int level){
-        uuidMapping.get(uuid).donateLevel = level;
+        uuidMapping.get(uuid).player.donateLevel = level;
     }
 
     public String readConfig(String name){
