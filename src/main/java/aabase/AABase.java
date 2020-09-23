@@ -4,6 +4,7 @@ import arc.*;
 import arc.graphics.Color;
 import arc.struct.Array;
 import arc.util.*;
+import com.sun.tools.javac.util.StringUtils;
 import mindustry.*;
 import mindustry.content.Blocks;
 import mindustry.content.Fx;
@@ -35,6 +36,7 @@ public class AABase extends Plugin{
     private final Interval interval = new Interval(10);
 
     private final DBInterface networkDB = new DBInterface("player_data", true);
+    private final DBInterface banDB = new DBInterface("ip_bans", true);
 
     private final HashMap<String, CustomPlayer> uuidMapping = new HashMap<>();
 
@@ -47,10 +49,18 @@ public class AABase extends Plugin{
     private final HistoryHandler historyHandler = new HistoryHandler();
     private static final String[] commands = {"[scarlet]attack[white]", "[yellow]retreat[white]", "[orange]rally[white]"};
 
+
+    private boolean currentVoteBan = false;
+    private int votes = 0;
+    private int requiredVotes = 0;
+    private String uuidTrial;
+    private List<String> voted;
+
     //register event handlers and create variables in the constructor
     public void init(){
 
         networkDB.connect("../network-files/network_data.db");
+        banDB.connect(networkDB.conn);
 
         if(!hubPipe.invalid){
             hubPipe.on("test", (e) ->{
@@ -122,6 +132,20 @@ public class AABase extends Plugin{
         });
 
         Events.on(EventType.PlayerJoin.class, event ->{
+            String ip = netServer.admins.getInfo(event.player.uuid).lastIP;
+            if(banDB.hasRow(ip)){
+                banDB.loadRow(ip);
+                int banPeriod = (int) banDB.safeGet(ip, "banPeriod");
+                if(banPeriod > Instant.now().getEpochSecond()){
+                    Call.onKick(event.player.con, "[accent]You are banned for another [scarlet]" +
+                            (banPeriod - Instant.now().getEpochSecond())/60 + "[accent] minutes.\n" +
+                            "Reason: " + banDB.safeGet(ip, "banReason"));
+                    banDB.saveRow(ip);
+                    return;
+                }
+                banDB.saveRow(ip);
+            }
+
             // Databasing stuff first:
             if(!networkDB.hasRow(event.player.uuid)){
                 Log.info("New player, adding to network tables...");
@@ -129,6 +153,14 @@ public class AABase extends Plugin{
             }
 
             networkDB.loadRow(event.player.uuid);
+
+            int banPeriod = (int) networkDB.safeGet(event.player.uuid, "banPeriod");
+            if(banPeriod > Instant.now().getEpochSecond()){
+                Call.onKick(event.player.con, "[accent]You are banned for another [scarlet]" +
+                        (banPeriod - Instant.now().getEpochSecond())/60 + "[accent] minutes.\n" +
+                        "Reason: " + networkDB.safeGet(event.player.uuid, "banReason"));
+                return;
+            }
 
             idMapping.put(String.valueOf(event.player.id), event.player.uuid);
 
@@ -176,7 +208,7 @@ public class AABase extends Plugin{
             CustomPlayer cply = uuidMapping.get(event.player.uuid);
             cply.connected = false;
 
-            String s = "[scarlet]" + event.player.id + "[accent]: " + event.player.name;
+            String s = "[scarlet]" + event.player.id + "[accent]: [white]" + event.player.name;
             recentlyDisconnect.add(s);
             Time.runTask(60 * 60 * 5, () -> {recentlyDisconnect.remove(s);});
         });
@@ -375,6 +407,180 @@ public class AABase extends Plugin{
 
         });
 
+        handler.<Player>register("vote", "<y/n>", "Vote on a current ban vote", (args, player) -> {
+            if((args[0].equals("y") || args[0].equals("n")) && voted.contains(player.uuid)){
+                player.sendMessage("[accent]You have already voted!");
+                return;
+            }
+            if(args[0].equals("y")){
+                voted.add(player.uuid);
+                votes += 1;
+                Call.sendMessage(player.name + "[accent] voted to ban [white]" + uuidMapping.get(uuidTrial).player.name +
+                        " [accent]([scarlet]" + votes + "[accent]/[scarlet]" + requiredVotes + "[accent])");
+            }else if (args[0].equals("n")){
+                voted.add(player.uuid);
+                votes -= 1;
+                Call.sendMessage(player.name + "[accent] voted [scarlet]not[accent] to ban [white]" + uuidMapping.get(uuidTrial).player.name +
+                        " [accent]([scarlet]" + votes + "[accent]/[scarlet]" + requiredVotes + "[accent])");
+            }else{
+                player.sendMessage("[accent]Type [orange]/banid <y/n>[accent] to vote.");
+            }
+        });
+
+        handler.<Player>register("banid", "[uuid/id] [minutes] [reason]", "Start a vote ban for a player id, or immediately ban if admin", (args, player) -> {
+            if(args.length == 1 && currentVoteBan){
+                if((args[0].equals("y") || args[0].equals("n")) && voted.contains(player.uuid)){
+                    player.sendMessage("[accent]You have already voted!");
+                    return;
+                }
+                if(args[0].equals("y")){
+                    voted.add(player.uuid);
+                    votes += 1;
+                    Call.sendMessage(player.name + "[accent] voted to ban [white]" + uuidMapping.get(uuidTrial).player.name +
+                            " [accent]([scarlet]" + votes + "[accent]/[scarlet]" + requiredVotes + "[accent])");
+                }else if (args[0].equals("n")){
+                    voted.add(player.uuid);
+                    votes -= 1;
+                    Call.sendMessage(player.name + "[accent] voted [scarlet]not[accent] to ban [white]" + uuidMapping.get(uuidTrial).player.name +
+                            " [accent]([scarlet]" + votes + "[accent]/[scarlet]" + requiredVotes + "[accent])");
+                }else{
+                    player.sendMessage("[accent]Type [orange]/banid <y/n>[accent] to vote.");
+                }
+                return;
+            }
+
+            if(args.length == 1){
+                player.sendMessage("[accent]Expected time length of ban as well." +
+                        "\nTo ban ID [scarlet]" + args[0] + "[accent] for [scarlet]60[accent] minutes: [scarlet]/banid " + args[0] + " 60");
+                return;
+            }
+
+            if(args.length == 0){
+                String s = "You can vote on the following players: ";
+                for(Player ply : playerGroup.all()){
+                    if(ply.isAdmin){
+                        continue;
+                    }
+                    s += "\n[gold] - [accent]ID: [scarlet]" + ply.id + "[accent]: [white]" + ply.name;
+                }
+                s += "\n[accent]Check [scarlet]/recentdc [accent]as well";
+                player.sendMessage(s);
+                return;
+            }
+            boolean uuidArg = !args[0].matches("-?\\d+(\\.\\d+)?");
+            int timeLength;
+            int minutes;
+            try{
+                minutes = Integer.parseInt(args[1]);
+                timeLength = (int) (minutes * 60 + Instant.now().getEpochSecond());
+            }catch (NumberFormatException e){
+                player.sendMessage("[accent]Invalid time length!");
+                return;
+            }
+
+            if(minutes > 60 && player.donateLevel == 0 && !player.isAdmin){
+                player.sendMessage("[accent]Max ban time for your rank is [scarlet]60 [accent]minutes");
+                return;
+            }
+
+            if(minutes > 60 * 5 && !player.isAdmin){
+                player.sendMessage("[accent]Max ban time for your rank is [scarlet]300 [accent]minutes");
+                return;
+            }
+
+            String uuid;
+            if(uuidArg){
+                uuid = args[0];
+            }else{
+                if(idMapping.containsKey(args[0])){
+                    uuid = idMapping.get(args[0]);
+                } else{
+                    player.sendMessage("[accent]Invalid ID: [scarlet]" + args[0]);
+                    return;
+                }
+            }
+
+            if(!networkDB.hasRow(uuid)){
+                player.sendMessage("[accent]Invalid ID: [scarlet]" + args[0]);
+                return;
+            }
+
+            if(uuidMapping.get(uuid).player.isAdmin){
+                player.sendMessage("[accent]Can't ban admin");
+                return;
+            }
+
+            if(!player.isAdmin && Instant.now().getEpochSecond() - uuidMapping.get(player.uuid).lastvoteBan < 60 * 5){
+                player.sendMessage("[accent]You can only vote to ban someone every 5 minutes");
+                return;
+            }
+
+            if(currentVoteBan){
+                player.sendMessage("[accent]There is already a vote in progress");
+                return;
+            }
+
+            uuidMapping.get(player.uuid).lastvoteBan = (int) Instant.now().getEpochSecond();
+
+            networkDB.loadRow(uuid);
+            boolean currentlyBanned = (int) networkDB.safeGet(uuid, "banPeriod") > Instant.now().getEpochSecond();
+
+            if(currentlyBanned){
+                player.sendMessage("[accent]Player is already banned!");
+                networkDB.saveRow(uuid);
+                return;
+            }
+
+            if(player.isAdmin){
+                networkDB.safePut(uuid, "banExpire", timeLength);
+                if(args.length > 2) networkDB.safePut(uuid, "banReason", args[2]);
+                networkDB.saveRow(uuid);
+                return;
+            }else{
+                uuidTrial = uuid;
+                currentVoteBan = true;
+                votes = 0;
+                voted = new ArrayList<String>(Arrays.asList(uuid));
+                requiredVotes = Math.max(playerGroup.size() / 3, 2);
+            }
+
+            Call.sendMessage(player.name + "[accent] Has started a vote ban against [white]" +
+                    uuidMapping.get(uuid).player.name + " to ban for [scarlet]" + minutes + "[accent] minutes " +
+                    "[accent]([scarlet]0[accent]/[scarlet]" + requiredVotes + "[accent])" +
+                    "\nType [orange]/banid <y/n>[accent] to vote.");
+
+            Time.runTask(60 * 30, () -> {
+                currentVoteBan = false;
+                if(votes >= requiredVotes){
+                    String ip = netServer.admins.getInfo(uuid).lastIP;
+                    if(!banDB.hasRow(ip)){
+                        banDB.addRow(ip);
+                    }
+                    banDB.loadRow(ip);
+                    banDB.safePut(ip, "banPeriod", timeLength);
+                    if(args.length > 2) banDB.safePut(ip, "banReason", args[2]);
+                    banDB.saveRow(ip);
+
+                    networkDB.loadRow(uuid);
+                    networkDB.safePut(uuid, "banPeriod", timeLength);
+                    if(args.length > 2) networkDB.safePut(uuid, "banReason", args[2]);
+                    networkDB.saveRow(uuid);
+                    Call.sendMessage("[accent]Vote passed. " + uuidMapping.get(uuid).player.name +
+                            "[accent] will be banned for [scarlet]" + minutes + "[accent] minutes");
+                    if(uuidMapping.get(uuid).connected){
+                        Call.onKick(uuidMapping.get(uuid).player.con, "[accent]You are banned for another [scarlet]" +
+                                minutes + "[accent] minutes.");
+                    }
+                }else{
+                    Call.sendMessage("[accent]Vote failed. Not enough votes.");
+                }
+            });
+
+
+        });
+
+
+
         handler.<Player>register("historyhere", "Display history for the tile you're positioned over", (args, player) -> {
             player.sendMessage(displayHistory(player.tileX(), player.tileY()));
         });
@@ -488,7 +694,7 @@ public class AABase extends Plugin{
 
         });
 
-        handler.<Player>register("banid", "<id>", "Ban a player based on id", (args, player) ->{
+        /*handler.<Player>register("banid", "<id>", "Ban a player based on id", (args, player) ->{
             if(!player.isAdmin){
                 player.sendMessage("[accent]Admin only!");
                 return;
@@ -510,7 +716,7 @@ public class AABase extends Plugin{
             }
 
 
-        });
+        });*/
 
     }
 
