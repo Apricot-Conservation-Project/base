@@ -24,11 +24,7 @@ public class Tuple<type1, type2> {
      */
     public Object get(int index){
         assert index == 0 || index == 1;
-        if(index == 0){
-            return a;
-        }else{
-            return b;
-        }
+        return index == 0 ? a : b;
     }
 
     /**

@@ -114,6 +114,10 @@ public class DBInterface {
     }
 
     public void saveRow(String key, boolean drop){
+        if(locked) {
+            throw new RuntimeException("Saving row after waiting too long");
+        }
+
         try {
             HashMap<String, Object> vals = entries.get(key);
 

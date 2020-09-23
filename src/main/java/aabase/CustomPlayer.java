@@ -7,15 +7,14 @@ public class CustomPlayer{
 
     protected Player player;
     public boolean connected;
-    public int eventCalls = 0;
     public String rawName;
+    public boolean historyMode = false;
 
 
-    public CustomPlayer(Player player, int eventCalls){
+    public CustomPlayer(Player player){
         this.player = player;
         this.rawName = player.name;
         this.connected = true;
-        this.eventCalls = eventCalls;
     }
 
 }

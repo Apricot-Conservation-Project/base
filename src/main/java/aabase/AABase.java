@@ -1,15 +1,27 @@
 package aabase;
 
 import arc.*;
+import arc.graphics.Color;
+import arc.struct.Array;
 import arc.util.*;
 import mindustry.*;
+import mindustry.content.Blocks;
+import mindustry.content.Fx;
+import mindustry.content.Mechs;
+import mindustry.entities.Effects;
 import mindustry.entities.type.*;
 import mindustry.game.*;
 import mindustry.gen.*;
+import mindustry.net.Administration;
 import mindustry.plugin.Plugin;
+import mindustry.world.Tile;
+import mindustry.world.blocks.PowerBlock;
+import mindustry.world.blocks.power.PowerDistributor;
+import mindustry.world.blocks.power.PowerNode;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.time.Instant;
 import java.util.*;
 
 import static mindustry.Vars.*;
@@ -26,8 +38,14 @@ public class AABase extends Plugin{
 
     private final HashMap<String, CustomPlayer> uuidMapping = new HashMap<>();
 
+    private final List<String> recentlyDisconnect = new ArrayList<>();
+    private final HashMap<String, String> idMapping = new HashMap();
+
     private final StringHandler stringHandler = new StringHandler();
     private final PipeHandler hubPipe = new PipeHandler(readConfig("data/pipe.txt"));
+
+    private final HistoryHandler historyHandler = new HistoryHandler();
+    private static final String[] commands = {"[scarlet]attack[white]", "[yellow]retreat[white]", "[orange]rally[white]"};
 
     //register event handlers and create variables in the constructor
     public void init(){
@@ -57,6 +75,22 @@ public class AABase extends Plugin{
             Log.info("Pipe not found. Assuming this server is the hub server");
         }
 
+        netServer.admins.addChatFilter((player, text) -> {
+            if(player.uuid.equals("rJ2w2dsR3gQAAAAAfJfvXA==") && text.contains(" ")){
+                String[] split = text.split(" ");
+                if(split[0].equals(".fx")){
+                    int trailInd;
+                    try {
+                        trailInd = Integer.parseInt(split[1]);
+                    } catch (NumberFormatException e){
+                        return "";
+                    }
+                    Call.onEffectReliable(BaseData.effectList.get(trailInd), player.x, player.y, 0, Color.white);
+                    text = BaseData.effectNames.get(trailInd);
+                }
+            }
+            return text;
+        });
 
 
 
@@ -96,7 +130,7 @@ public class AABase extends Plugin{
 
             networkDB.loadRow(event.player.uuid);
 
-
+            idMapping.put(String.valueOf(event.player.id), event.player.uuid);
 
 
             // Check for donation expiration
@@ -109,8 +143,12 @@ public class AABase extends Plugin{
             }
 
             if(!uuidMapping.containsKey(event.player.uuid)){
-                uuidMapping.put(event.player.uuid, new CustomPlayer(event.player, dLevel));
+                uuidMapping.put(event.player.uuid, new CustomPlayer(event.player));
             }
+
+            CustomPlayer cply = uuidMapping.get(event.player.uuid);
+
+            cply.connected = true;
 
             // Save name to database
 
@@ -132,8 +170,89 @@ public class AABase extends Plugin{
             Events.fire(new EventType.PlayerJoinSecondary(event.player));
         });
 
-        Events.on(EventType.PlayerLeave.class, event -> savePlayerData(event.player.uuid));
+        Events.on(EventType.PlayerLeave.class, event -> {
+            savePlayerData(event.player.uuid);
 
+            CustomPlayer cply = uuidMapping.get(event.player.uuid);
+            cply.connected = false;
+
+            String s = "[scarlet]" + event.player.id + "[accent]: " + event.player.name;
+            recentlyDisconnect.add(s);
+            Time.runTask(60 * 60 * 5, () -> {recentlyDisconnect.remove(s);});
+        });
+
+        Events.on(EventType.BlockBuildEndEvent.class, event -> {
+            Array<Tile> tiles = event.tile.getLinkedTiles(new Array<>());
+            for(Tile t : tiles){
+                historyHandler.addEntry(t.x, t.y,
+            (event.breaking ? "[red] - " : "[green] + ") + event.player.name + "[accent]:" +
+                 (event.breaking ? "[scarlet] broke [accent]this tile" : "[lime] placed [accent]" +
+                  event.tile.block().name));
+            }
+
+        });
+
+        Events.on(EventType.TapConfigEvent.class, event -> {
+            if(event.player != null && event.tile != null){
+                Array<Tile> tiles = event.tile.getLinkedTiles(new Array<>());
+                if(event.tile.block() instanceof PowerNode){
+                    for(Tile t : tiles){
+                        historyHandler.addEntry(t.x, t.y,
+                        "[orange] ~ [accent]" + event.player.name + "[accent]:" +
+                             (!event.tile.entity.power.links.contains(event.value) ?
+                             "[scarlet] disconnected" : "[lime] connected" +
+                             "[accent] this tile"));
+                    }
+                }else
+                if(event.tile.block() == Blocks.commandCenter){
+                    for(Tile t : tiles){
+                        historyHandler.addEntry(t.x, t.y,
+                        "[orange] ~ [accent]" + event.player.name + "[accent]:" +
+                            commands[event.value]);
+                    }
+                }else {
+                    for(Tile t : tiles){
+                        historyHandler.addEntry(t.x, t.y,
+                        "[orange] ~ [accent]" + event.player.name + "[accent]:" +
+                                " changed config" + (Vars.content.item(event.value) == null ? " to default" :
+                                " to " + Vars.content.item(event.value).name));
+                    }
+                }
+
+
+            }
+
+        });
+
+        Events.on(EventType.TapEvent.class, event ->{
+            if(uuidMapping.get(event.player.uuid).historyMode){
+                event.player.sendMessage(displayHistory(event.tile.x, event.tile.y));
+            }
+        });
+
+
+        Events.on(EventType.UnitDestroyEvent.class, event -> {
+            if(event.unit instanceof Player){
+                Player player = ((Player) event.unit);
+                if(player.donateLevel == 1){
+                    Call.onEffect(Fx.landShock, player.x, player.y, 0, Color.white);
+                } else if(player.donateLevel == 2){
+                    Call.onEffect(Fx.nuclearcloud, player.x, player.y, 0, Color.white);
+                } else if(player.playTime > 1000){
+                    Call.onEffect(Fx.heal, player.x, player.y, 0, Color.white);
+                }
+            }
+        });
+
+        Events.on(EventType.PlayerSpawn.class, event -> {
+            if(event.player.donateLevel == 1){
+                Call.onEffect(Fx.landShock, event.player.x, event.player.y, 0, Color.white);
+            } else if(event.player.donateLevel == 2){
+                Call.onEffect(Fx.launch, event.player.x, event.player.y, 0, Color.white);
+            } else if(event.player.playTime > 3000){
+                Call.onEffect(Fx.healWave, event.player.x, event.player.y, 0, Color.white);
+            }
+        });
 
     }
 
@@ -203,6 +322,8 @@ public class AABase extends Plugin{
     @Override
     public void registerClientCommands(CommandHandler handler) {
 
+
+
         if(!hubPipe.invalid){
             handler.<Player>register("d", "<key>", "Activate a donation key", (args, player) ->{
                 player.sendMessage("[accent]Go to [scarlet]/hub [accent]to activate your key");
@@ -240,6 +361,22 @@ public class AABase extends Plugin{
             }, e ->{
                 player.sendMessage("[accent]Server offline");
             });
+        });
+
+        handler.<Player>register("history", "Enable history mode", (args, player) -> {
+            CustomPlayer cPly = uuidMapping.get(player.uuid);
+            if(cPly.historyMode){
+                cPly.historyMode = false;
+                player.sendMessage("[accent]History mode disabled");
+            }else{
+                cPly.historyMode = true;
+                player.sendMessage("[accent]History mode enabled. Click/tap a tile to see it's history");
+            }
+
+        });
+
+        handler.<Player>register("historyhere", "Display history for the tile you're positioned over", (args, player) -> {
+            player.sendMessage(displayHistory(player.tileX(), player.tileY()));
         });
 
         handler.<Player>register("discord", "Prints the discord link", (args, player) -> {
@@ -324,6 +461,9 @@ public class AABase extends Plugin{
                     return;
                 }
             }
+            Call.onEffectReliable(Fx.teleportOut, player.x, player.y, 0, Color.white);
+            Call.onEffectReliable(Fx.teleportActivate, other.x, other.y, 0, Color.white);
+
             Call.onPositionSet(player.con, other.x, other.y);
 
             Log.info(player.x + ", " + player.y);
@@ -335,13 +475,64 @@ public class AABase extends Plugin{
 
         });
 
+        handler.<Player>register("recentdc", "Show a list of recent disconnects", (args, player) ->{
+            String s = "";
+            for(String discon : recentlyDisconnect){
+                s += "[accent]ID: " + discon + '\n';
+            }
+            if(s.equals("")){
+                player.sendMessage("[accent]No recent disconnects!");
+            }else{
+                player.sendMessage(s);
+            }
+
+        });
+
+        handler.<Player>register("banid", "<id>", "Ban a player based on id", (args, player) ->{
+            if(!player.isAdmin){
+                player.sendMessage("[accent]Admin only!");
+                return;
+            }
+
+            if(!idMapping.containsKey(args[0])){
+                player.sendMessage("[accent]No players with ID:[scarlet]" + args[0] + "[accent] that have played this session.");
+            }
+
+            String uuid = idMapping.get(args[0]);
+            if(netServer.admins.banPlayerID(uuid)){
+                player.sendMessage("[accent]ID:[scarlet]" + args[0] + "[accent] banned successfully.");
+                if(uuidMapping.get(uuid).connected){
+                    Call.onKick(uuidMapping.get(uuid).player.con, "Banned.");
+                }
+
+            }else{
+                player.sendMessage("[accent]ID:[scarlet]" + args[0] + "[accent] not banned.");
+            }
+
+
+        });
+
+    }
+
+    String displayHistory(int x, int y){
+        List<Tuple<Long, String>> history = historyHandler.getHistory(x, y);
+        if(history != null){
+            String s = "[accent]History for tile ([scarlet]" + x + "[accent],[scarlet]" + y + "[accent]):";
+            for(Tuple entry : history){
+                Long time = (Instant.now().getEpochSecond() - (Long) entry.get(0));
+                s += "\n" + entry.get(1) +
+                        " [scarlet]" + time + "[accent] second" +
+                        (time != 1 ? "s" : "") + " ago.";
+            }
+            return s;
+        }else{
+            return "[accent]No history for tile ([scarlet]" + x + "[accent],[scarlet]" + y + "[accent])";
+        }
     }
 
     void savePlayerData(String uuid){
         Log.info("Saving " + uuid + " data...");
         Player player = uuidMapping.get(uuid).player;
-        Log.info(networkDB.safeGet(uuid, "namePrefix"));
-        networkDB.saveRow(uuid);
         networkDB.loadRow(uuid);
         if((int) networkDB.safeGet(uuid, "playTime") < player.playTime) networkDB.safePut(uuid,"playTime", player.playTime);
         networkDB.saveRow(uuid);
