@@ -131,15 +131,13 @@ public class AABase extends Plugin{
                     event.player.name = event.player.name.replaceAll("(?i)" + swear, "");
                 }
             }
-        });
 
-        Events.on(EventType.PlayerJoin.class, event ->{
             String ip = netServer.admins.getInfo(event.player.uuid).lastIP;
             if(banDB.hasRow(ip)){
                 banDB.loadRow(ip);
                 int banPeriod = (int) banDB.safeGet(ip, "banPeriod");
                 if(banPeriod > Instant.now().getEpochSecond()){
-                    Call.onKick(event.player.con, "[accent]You are banned for another [scarlet]" +
+                    event.player.con.kick("[accent]You are banned for another [scarlet]" +
                             (banPeriod - Instant.now().getEpochSecond())/60 + "[accent] minutes.\n" +
                             "Reason: [white]" + banDB.safeGet(ip, "banReason"));
                     banDB.saveRow(ip);
@@ -148,6 +146,20 @@ public class AABase extends Plugin{
                 banDB.saveRow(ip);
             }
 
+            if(networkDB.hasRow(event.player.uuid)){
+                networkDB.loadRow(event.player.uuid);
+                int banPeriod = (int) networkDB.safeGet(event.player.uuid, "banPeriod");
+                if(banPeriod > Instant.now().getEpochSecond()){
+                    event.player.con.kick("[accent]You are banned for another [scarlet]" +
+                            (banPeriod - Instant.now().getEpochSecond())/60 + "[accent] minutes.\n" +
+                            "Reason: [white]" + networkDB.safeGet(event.player.uuid, "banReason"));
+                    return;
+                }
+            }
+        });
+
+        Events.on(EventType.PlayerJoin.class, event ->{
+
             // Databasing stuff first:
             if(!networkDB.hasRow(event.player.uuid)){
                 Log.info("New player, adding to network tables...");
@@ -155,14 +167,6 @@ public class AABase extends Plugin{
             }
 
             networkDB.loadRow(event.player.uuid);
-
-            int banPeriod = (int) networkDB.safeGet(event.player.uuid, "banPeriod");
-            if(banPeriod > Instant.now().getEpochSecond()){
-                Call.onKick(event.player.con, "[accent]You are banned for another [scarlet]" +
-                        (banPeriod - Instant.now().getEpochSecond())/60 + "[accent] minutes.\n" +
-                        "Reason: [white]" + networkDB.safeGet(event.player.uuid, "banReason"));
-                return;
-            }
 
             idMapping.put(String.valueOf(event.player.id), event.player.uuid);
 
@@ -570,6 +574,16 @@ public class AABase extends Plugin{
 
             if(player.isAdmin){
 
+                String ip = netServer.admins.getInfo(uuid).lastIP;
+                if(!banDB.hasRow(ip)){
+                    banDB.addRow(ip);
+                }
+                banDB.loadRow(ip);
+                banDB.safePut(ip, "banPeriod", timeLength);
+                if(reason != null) banDB.safePut(ip, "banReason", reason);
+                banDB.saveRow(ip);
+
+                networkDB.loadRow(uuid);
                 networkDB.safePut(uuid, "banPeriod", timeLength);
                 if(reason != null) networkDB.safePut(uuid, "banReason", reason);
                 networkDB.saveRow(uuid);
@@ -608,7 +622,7 @@ public class AABase extends Plugin{
                     Call.sendMessage("[accent]Vote passed. " + uuidMapping.get(uuid).player.name +
                             "[accent] will be banned for [scarlet]" + minutes + "[accent] minutes");
                     if(uuidMapping.get(uuid).connected){
-                        Call.onKick(uuidMapping.get(uuid).player.con, "[accent]You are banned for another [scarlet]" +
+                        uuidMapping.get(uuid).player.con.kick("[accent]You are banned for another [scarlet]" +
                                 minutes + "[accent] minutes.\nReason: [white]" + finalReason);
                     }
                 }else{
