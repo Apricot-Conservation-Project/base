@@ -578,7 +578,7 @@ public class AABase extends Plugin{
                     "[accent]([scarlet]0[accent]/[scarlet]" + requiredVotes + "[accent])" +
                     "\nType [orange]/banid <y/n>[accent] to vote.");
 
-            Time.runTask(60 * 30, () -> {
+            Time.runTask(60 * 90, () -> {
                 currentVoteBan = false;
                 if(votes >= requiredVotes){
                     String reason = null;
