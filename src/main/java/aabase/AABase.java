@@ -24,6 +24,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static mindustry.Vars.*;
 
@@ -395,7 +397,7 @@ public class AABase extends Plugin{
             });
         });
 
-        handler.<Player>register("history", "Enable history mode", (args, player) -> {
+        Function<String[], Consumer<Player>> historyCommand = args -> player -> {
             CustomPlayer cPly = uuidMapping.get(player.uuid);
             if(cPly.historyMode){
                 cPly.historyMode = false;
@@ -404,7 +406,34 @@ public class AABase extends Plugin{
                 cPly.historyMode = true;
                 player.sendMessage("[accent]History mode enabled. Click/tap a tile to see it's history");
             }
+        };
 
+        handler.<Player>register("history", "Enable history mode", (args, player) -> {
+            historyCommand.apply(args).accept(player);
+        });
+
+        handler.<Player>register("h", "Alias for history", (args, player) -> {
+            historyCommand.apply(args).accept(player);
+        });
+
+        Function<String[], Consumer<Player>> rcdCommand = args -> player -> {
+            String s = "";
+            for(String discon : recentlyDisconnect){
+                s += "[accent]ID: " + discon + '\n';
+            }
+            if(s.equals("")){
+                player.sendMessage("[accent]No recent disconnects!");
+            }else{
+                player.sendMessage(s);
+            }
+        };
+
+        handler.<Player>register("recentdc", "Show a list of recent disconnects", (args, player) ->{
+            rcdCommand.apply(args).accept(player);
+        });
+
+        handler.<Player>register("rdc", "Alias for recentdc", (args, player) ->{
+            rcdCommand.apply(args).accept(player);
         });
 
         handler.<Player>register("vote", "<y/n>", "Vote on a current ban vote", (args, player) -> {
@@ -427,7 +456,7 @@ public class AABase extends Plugin{
             }
         });
 
-        handler.<Player>register("banid", "[uuid/id] [minutes] [reason]", "Start a vote ban for a player id, or immediately ban if admin", (args, player) -> {
+        Function<String[], Consumer<Player>> bid = args -> player -> {
             if(args.length == 1 && currentVoteBan){
                 if((args[0].equals("y") || args[0].equals("n")) && voted.contains(player.uuid)){
                     player.sendMessage("[accent]You have already voted!");
@@ -552,18 +581,23 @@ public class AABase extends Plugin{
             Time.runTask(60 * 30, () -> {
                 currentVoteBan = false;
                 if(votes >= requiredVotes){
+                    String reason = null;
+                    if(args.length > 2){
+                        String[] newArray = Arrays.copyOfRange(args, 2, args.length);
+                        reason = String.join(" ", newArray);
+                    }
                     String ip = netServer.admins.getInfo(uuid).lastIP;
                     if(!banDB.hasRow(ip)){
                         banDB.addRow(ip);
                     }
                     banDB.loadRow(ip);
                     banDB.safePut(ip, "banPeriod", timeLength);
-                    if(args.length > 2) banDB.safePut(ip, "banReason", args[2]);
+                    if(reason != null) banDB.safePut(ip, "banReason", reason);
                     banDB.saveRow(ip);
 
                     networkDB.loadRow(uuid);
                     networkDB.safePut(uuid, "banPeriod", timeLength);
-                    if(args.length > 2) networkDB.safePut(uuid, "banReason", args[2]);
+                    if(reason != null) networkDB.safePut(uuid, "banReason", reason);
                     networkDB.saveRow(uuid);
                     Call.sendMessage("[accent]Vote passed. " + uuidMapping.get(uuid).player.name +
                             "[accent] will be banned for [scarlet]" + minutes + "[accent] minutes");
@@ -575,8 +609,14 @@ public class AABase extends Plugin{
                     Call.sendMessage("[accent]Vote failed. Not enough votes.");
                 }
             });
+        };
 
+        handler.<Player>register("banid", "[uuid/id] [minutes] [reason]", "Start a vote ban for a player id, or immediately ban if admin", (args, player) -> {
+            bid.apply(args).accept(player);
+        });
 
+        handler.<Player>register("bid", "[uuid/id] [minutes] [reason]", "Alias for banid", (args, player) -> {
+            bid.apply(args).accept(player);
         });
 
 
@@ -585,11 +625,15 @@ public class AABase extends Plugin{
             player.sendMessage(displayHistory(player.tileX(), player.tileY()));
         });
 
+        handler.<Player>register("hh", "Alias for historyhere", (args, player) -> {
+            player.sendMessage(displayHistory(player.tileX(), player.tileY()));
+        });
+
         handler.<Player>register("discord", "Prints the discord link", (args, player) -> {
             player.sendMessage("[purple]https://discord.gg/GEnYcSv");
         });
 
-        handler.<Player>register("uuid", "Prints the your uuid", (args, player) -> {
+        handler.<Player>register("uuid", "Prints your uuid", (args, player) -> {
             player.sendMessage("[scarlet]" + player.uuid);
         });
 
@@ -680,43 +724,6 @@ public class AABase extends Plugin{
 
 
         });
-
-        handler.<Player>register("recentdc", "Show a list of recent disconnects", (args, player) ->{
-            String s = "";
-            for(String discon : recentlyDisconnect){
-                s += "[accent]ID: " + discon + '\n';
-            }
-            if(s.equals("")){
-                player.sendMessage("[accent]No recent disconnects!");
-            }else{
-                player.sendMessage(s);
-            }
-
-        });
-
-        /*handler.<Player>register("banid", "<id>", "Ban a player based on id", (args, player) ->{
-            if(!player.isAdmin){
-                player.sendMessage("[accent]Admin only!");
-                return;
-            }
-
-            if(!idMapping.containsKey(args[0])){
-                player.sendMessage("[accent]No players with ID:[scarlet]" + args[0] + "[accent] that have played this session.");
-            }
-
-            String uuid = idMapping.get(args[0]);
-            if(netServer.admins.banPlayerID(uuid)){
-                player.sendMessage("[accent]ID:[scarlet]" + args[0] + "[accent] banned successfully.");
-                if(uuidMapping.get(uuid).connected){
-                    Call.onKick(uuidMapping.get(uuid).player.con, "Banned.");
-                }
-
-            }else{
-                player.sendMessage("[accent]ID:[scarlet]" + args[0] + "[accent] not banned.");
-            }
-
-
-        });*/
 
     }
 
