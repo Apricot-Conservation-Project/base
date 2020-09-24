@@ -141,7 +141,7 @@ public class AABase extends Plugin{
                 if(banPeriod > Instant.now().getEpochSecond()){
                     Call.onKick(event.player.con, "[accent]You are banned for another [scarlet]" +
                             (banPeriod - Instant.now().getEpochSecond())/60 + "[accent] minutes.\n" +
-                            "Reason: " + banDB.safeGet(ip, "banReason"));
+                            "Reason: [white]" + banDB.safeGet(ip, "banReason"));
                     banDB.saveRow(ip);
                     return;
                 }
@@ -160,7 +160,7 @@ public class AABase extends Plugin{
             if(banPeriod > Instant.now().getEpochSecond()){
                 Call.onKick(event.player.con, "[accent]You are banned for another [scarlet]" +
                         (banPeriod - Instant.now().getEpochSecond())/60 + "[accent] minutes.\n" +
-                        "Reason: " + networkDB.safeGet(event.player.uuid, "banReason"));
+                        "Reason: [white]" + networkDB.safeGet(event.player.uuid, "banReason"));
                 return;
             }
 
@@ -456,6 +456,8 @@ public class AABase extends Plugin{
             }
         });
 
+
+
         Function<String[], Consumer<Player>> bid = args -> player -> {
             if(args.length == 1 && currentVoteBan){
                 if((args[0].equals("y") || args[0].equals("n")) && voted.contains(player.uuid)){
@@ -485,7 +487,7 @@ public class AABase extends Plugin{
             }
 
             if(args.length == 0){
-                String s = "You can vote on the following players: ";
+                String s = "[accent]You can vote on the following players: ";
                 for(Player ply : playerGroup.all()){
                     if(ply.isAdmin){
                         continue;
@@ -560,9 +562,16 @@ public class AABase extends Plugin{
                 return;
             }
 
+            String reason = null;
+            if(args.length > 2){
+                String[] newArray = Arrays.copyOfRange(args, 2, args.length);
+                reason = String.join(" ", newArray);
+            }
+
             if(player.isAdmin){
-                networkDB.safePut(uuid, "banExpire", timeLength);
-                if(args.length > 2) networkDB.safePut(uuid, "banReason", args[2]);
+
+                networkDB.safePut(uuid, "banPeriod", timeLength);
+                if(reason != null) networkDB.safePut(uuid, "banReason", reason);
                 networkDB.saveRow(uuid);
                 return;
             }else{
@@ -574,36 +583,33 @@ public class AABase extends Plugin{
             }
 
             Call.sendMessage(player.name + "[accent] Has started a vote ban against [white]" +
-                    uuidMapping.get(uuid).player.name + " to ban for [scarlet]" + minutes + "[accent] minutes " +
+                    uuidMapping.get(uuid).player.name + "[accent] to ban for [scarlet]" + minutes + "[accent] minutes " +
                     "[accent]([scarlet]0[accent]/[scarlet]" + requiredVotes + "[accent])" +
+                    "\n[accent]Reason:[white] " + reason +
                     "\nType [orange]/banid <y/n>[accent] to vote.");
 
+            String finalReason = reason;
             Time.runTask(60 * 90, () -> {
                 currentVoteBan = false;
                 if(votes >= requiredVotes){
-                    String reason = null;
-                    if(args.length > 2){
-                        String[] newArray = Arrays.copyOfRange(args, 2, args.length);
-                        reason = String.join(" ", newArray);
-                    }
                     String ip = netServer.admins.getInfo(uuid).lastIP;
                     if(!banDB.hasRow(ip)){
                         banDB.addRow(ip);
                     }
                     banDB.loadRow(ip);
                     banDB.safePut(ip, "banPeriod", timeLength);
-                    if(reason != null) banDB.safePut(ip, "banReason", reason);
+                    if(finalReason != null) banDB.safePut(ip, "banReason", finalReason);
                     banDB.saveRow(ip);
 
                     networkDB.loadRow(uuid);
                     networkDB.safePut(uuid, "banPeriod", timeLength);
-                    if(reason != null) networkDB.safePut(uuid, "banReason", reason);
+                    if(finalReason != null) networkDB.safePut(uuid, "banReason", finalReason);
                     networkDB.saveRow(uuid);
                     Call.sendMessage("[accent]Vote passed. " + uuidMapping.get(uuid).player.name +
                             "[accent] will be banned for [scarlet]" + minutes + "[accent] minutes");
                     if(uuidMapping.get(uuid).connected){
                         Call.onKick(uuidMapping.get(uuid).player.con, "[accent]You are banned for another [scarlet]" +
-                                minutes + "[accent] minutes.");
+                                minutes + "[accent] minutes.\nReason: [white]" + finalReason);
                     }
                 }else{
                     Call.sendMessage("[accent]Vote failed. Not enough votes.");
@@ -611,11 +617,11 @@ public class AABase extends Plugin{
             });
         };
 
-        handler.<Player>register("banid", "[uuid/id] [minutes] [reason]", "Start a vote ban for a player id, or immediately ban if admin", (args, player) -> {
+        handler.<Player>register("banid", "[uuid/id] [minutes] [reason...]", "Start a vote ban for a player id, or immediately ban if admin", (args, player) -> {
             bid.apply(args).accept(player);
         });
 
-        handler.<Player>register("bid", "[uuid/id] [minutes] [reason]", "Alias for banid", (args, player) -> {
+        handler.<Player>register("bid", "[uuid/id] [minutes] [reason...]", "Alias for banid", (args, player) -> {
             bid.apply(args).accept(player);
         });
 
