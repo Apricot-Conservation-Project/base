@@ -180,6 +180,11 @@ public class AABase extends Plugin{
                 dLevel = 0;
             }
 
+            int adminRank = (int) networkDB.safeGet(event.player.uuid, "adminRank");
+            if(adminRank != 0){
+                event.player.isAdmin = true;
+            }
+
             if(!uuidMapping.containsKey(event.player.uuid)){
                 uuidMapping.put(event.player.uuid, new CustomPlayer(event.player));
             }
@@ -220,12 +225,16 @@ public class AABase extends Plugin{
         });
 
         Events.on(EventType.BlockBuildEndEvent.class, event -> {
-            Array<Tile> tiles = event.tile.getLinkedTiles(new Array<>());
-            for(Tile t : tiles){
-                historyHandler.addEntry(t.x, t.y,
-            (event.breaking ? "[red] - " : "[green] + ") + event.player.name + "[accent]:" +
-                 (event.breaking ? "[scarlet] broke [accent]this tile" : "[lime] placed [accent]" +
-                  event.tile.block().name));
+            try {
+                Array<Tile> tiles = event.tile.getLinkedTiles(new Array<>());
+                for (Tile t : tiles) {
+                    historyHandler.addEntry(t.x, t.y,
+                            (event.breaking ? "[red] - " : "[green] + ") + event.player.name + "[accent]:" +
+                                    (event.breaking ? "[scarlet] broke [accent]this tile" : "[lime] placed [accent]" +
+                                            event.tile.block().name));
+                }
+            }catch(NullPointerException e){
+                e.printStackTrace();
             }
 
         });
@@ -297,6 +306,27 @@ public class AABase extends Plugin{
     //register commands that run on the server
     @Override
     public void registerServerCommands(CommandHandler handler){
+
+        handler.register("setadmin", "<uuid> <rank>", "Set the admin rank of a player", args -> {
+            int newRank;
+            try{
+                newRank = Integer.parseInt(args[1]);
+            }catch(NumberFormatException e){
+                Log.info("Invalid rank input '" + args[1] + "'");
+                return;
+            }
+            if(!networkDB.hasRow(args[0])){
+                Log.info("Invalid uuid: " + args[0]);
+                return;
+            }
+
+            networkDB.loadRow(args[0]);
+            networkDB.safePut(args[0],"adminRank", newRank);
+            networkDB.saveRow(args[0]);
+
+            Log.info("Set uuid " + args[0] + " to have adminRank of " + args[1]);
+
+        });
 
         handler.register("setplaytime", "<uuid> <playtime>", "Set the play time of a player", args -> {
             int newTime;
@@ -506,7 +536,7 @@ public class AABase extends Plugin{
             int timeLength;
             int minutes;
             try{
-                minutes = Integer.parseInt(args[1]);
+                minutes = Math.max(525600,Integer.parseInt(args[1]));
                 timeLength = (int) (minutes * 60 + Instant.now().getEpochSecond());
             }catch (NumberFormatException e){
                 player.sendMessage("[accent]Invalid time length!");
@@ -587,13 +617,18 @@ public class AABase extends Plugin{
                 networkDB.safePut(uuid, "banPeriod", timeLength);
                 if(reason != null) networkDB.safePut(uuid, "banReason", reason);
                 networkDB.saveRow(uuid);
+                Call.sendMessage(player.name + "[accent] has banned [white]" + uuidMapping.get(uuid).player.name +
+                        " for [scarlet]" + minutes + "[accent] minutes");
+                String s = reason;
+                playerGroup.all().each(p -> p.uuid != null && p.uuid.equals(uuid), p -> p.con.kick("[accent]You are banned for another [scarlet]" +
+                        minutes + "[accent] minutes.\nReason: [white]" + s));
                 return;
             }else{
                 uuidTrial = uuid;
                 currentVoteBan = true;
                 votes = 0;
                 voted = new ArrayList<String>(Arrays.asList(uuid));
-                requiredVotes = Math.max(playerGroup.size() / 3, 2);
+                requiredVotes = Math.max(playerGroup.size() / 5, 2);
             }
 
             Call.sendMessage(player.name + "[accent] Has started a vote ban against [white]" +
@@ -619,12 +654,10 @@ public class AABase extends Plugin{
                     networkDB.safePut(uuid, "banPeriod", timeLength);
                     if(finalReason != null) networkDB.safePut(uuid, "banReason", finalReason);
                     networkDB.saveRow(uuid);
-                    Call.sendMessage("[accent]Vote passed. " + uuidMapping.get(uuid).player.name +
+                    Call.sendMessage("[accent]Vote passed. [white]" + uuidMapping.get(uuid).player.name +
                             "[accent] will be banned for [scarlet]" + minutes + "[accent] minutes");
-                    if(uuidMapping.get(uuid).connected){
-                        uuidMapping.get(uuid).player.con.kick("[accent]You are banned for another [scarlet]" +
-                                minutes + "[accent] minutes.\nReason: [white]" + finalReason);
-                    }
+                    playerGroup.all().each(p -> p.uuid != null && p.uuid.equals(uuid), p -> p.con.kick("[accent]You are banned for another [scarlet]" +
+                            minutes + "[accent] minutes.\nReason: [white]" + finalReason));
                 }else{
                     Call.sendMessage("[accent]Vote failed. Not enough votes.");
                 }
@@ -675,8 +708,13 @@ public class AABase extends Plugin{
                 player.sendMessage("[accent]Use a mindustry color for this command. For example: [aqua] (aqua is not a valid color, this is just an example)");
                 return;
             }
-            if(args[0].contains("#") && player.donateLevel < 2){
+            if(args[0].contains("#") && player.donateLevel < 2) {
                 player.sendMessage("[accent]Only " + stringHandler.donatorMessagePrefix(2) + "[accent]can set their name to any color. Use a default mindustry color instead.");
+                return;
+            }
+
+            if(!Strings.stripColors(args[0]).equals("")){
+                player.sendMessage("[accent]Must be a valid color");
                 return;
             }
 
@@ -743,6 +781,28 @@ public class AABase extends Plugin{
             player.sendMessage("[accent]Tp'd you to [white]" + other.name);
 
 
+        });
+
+        handler.<Player>register("endgame", "[scarlet]Ends the game (admin only)", (args, player) ->{
+            if(!player.isAdmin){
+                player.sendMessage("[accent]Admin only!");
+                return;
+            }
+
+            Call.sendMessage("[scarlet]" + player.name +  " [accent]has force ended the game. Ending in 10 seconds...");
+
+            Log.info("Ending game...");
+            Time.runTask(60f * 10f, () -> {
+
+                for(Player ply : playerGroup.all()) {
+                    Call.onConnect(player.con, "aamindustry.play.ai", 6567);
+                }
+
+                // I shouldn't need this, all players should be gone since I connected them to hub
+                // netServer.kickAll(KickReason.serverRestarting);
+                Log.info("Game ended successfully.");
+                Time.runTask(5f, () -> System.exit(2));
+            });
         });
 
     }

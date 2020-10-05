@@ -2,7 +2,7 @@ package aabase;
 
 public class StringHandler {
 
-    public static final String[] badNames = {"shit", "fuck", "asshole", "cunt", "nigger", "nigga", "niga", "faggot", "dick", "bitch", "admin", "mod", "mindustry", "server", "owner", "<", ">", "recessive"};
+    public static final String[] badNames = {"shit", "fuck", "asshole", "cunt", "nigger", "nigga", "niga", "faggot", "dick", "bitch", "admin", "mod", "mindustry", "server", "owner", "<", ">", "recessive", "nazi"};
 
 
     public final String donatorMessagePrefix(int donatorLevel){
