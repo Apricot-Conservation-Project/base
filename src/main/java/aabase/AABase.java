@@ -676,125 +676,6 @@ public class AABase extends Plugin{
             bid.apply(args).accept(player);
         });
 
-        Function<String[], Consumer<Player>> banList = args -> player -> {
-            if(!player.isAdmin){
-                player.sendMessage("[accent]Admin only!");
-                return;
-            }
-            int page;
-            try{
-                page = Integer.parseInt(args[0]);
-            }catch(NumberFormatException ignored){
-                player.sendMessage("[accent]Invalid page number: [scarlet]" + args[0]);
-                return;
-            }
-            String s = "[accent]Below is a list of bans: (page [gold]" + page + "/";
-            ResultSet rs = networkDB.customQuery("SELECT * FROM player_data WHERE banPeriod>"
-                    + Instant.now().getEpochSecond() + ";");
-
-            try {
-                int size = networkDB.customQuery("SELECT COUNT(*) FROM player_data WHERE banPeriod>0"
-                        + Instant.now().getEpochSecond() + ";").getInt(1);
-                if(size == 0){
-                    player.sendMessage("[accent]No active bans!");
-                    return;
-                }
-                if(page < 1 || page > size/5 + 1){
-                    player.sendMessage("[accent]Page must be between [scarlet]1[accent] and [scarlet]" + (size/5 + 1));
-                    return;
-                }
-                s += (size/5 + 1) + "[accent])";
-                int i = -1;
-                while (rs.next()) {
-                    i ++;
-                    if(i / 5 + 1 == page){
-                        s += "\n[gold] " + (i+1) + "[white]: " + rs.getString(5) + "[accent], ban time: [scarlet]"
-                                + (rs.getInt(8) - Instant.now().getEpochSecond())/60 + "[accent] minutes";
-                    }
-                }
-            }catch(SQLException e){
-                e.printStackTrace();
-                player.sendMessage("Invalid SQL");
-                return;
-            }
-
-            player.sendMessage(s);
-
-        };
-
-        handler.<Player>register("bans", "<page>", "View current banned ids", (args, player) -> {
-            banList.apply(args).accept(player);
-        });
-
-
-        Function<String[], Consumer<Player>> unbanCommand = args -> player -> {
-            if(!player.isAdmin){
-                player.sendMessage("[accent]Admin only!");
-                return;
-            }
-
-            int id;
-            try{
-                id = Integer.parseInt(args[0]);
-            }catch(NumberFormatException ignored){
-                player.sendMessage("[accent]Invalid id: [scarlet]" + args[0]);
-                return;
-            }
-
-            ResultSet rs = networkDB.customQuery("SELECT * FROM player_data WHERE banPeriod>"
-                    + Instant.now().getEpochSecond() + ";");
-            try {
-                int size = networkDB.customQuery("SELECT COUNT(*) FROM player_data WHERE banPeriod>0"
-                        + Instant.now().getEpochSecond() + ";").getInt(1);
-                if(size == 0){
-                    player.sendMessage("[accent]No active bans!");
-                    return;
-                }
-                if(id < 1 || id > size){
-                    player.sendMessage("id must be between [scarlet]1[accent] and [scarlet]" + size);
-                    return;
-                }
-
-                int i = 0;
-                while (rs.next()) {
-                    i ++;
-                    if(i == id){
-                        String uuid = rs.getString(1);
-                        networkDB.loadRow(uuid);
-                        String ip = (String) networkDB.safeGet(uuid, "ip");
-                        networkDB.safePut(uuid, "banPeriod", Instant.now().getEpochSecond());
-                        networkDB.safePut(uuid, "banReason", "Unbanned by: " + player.name);
-                        if(banDB.hasRow(ip)){
-                            banDB.loadRow(ip);
-                            banDB.safePut(ip, "banPeriod", Instant.now().getEpochSecond());
-                            banDB.safePut(ip, "banReason", "Unbanned by: " + player.name);
-                            banDB.saveRow(ip);
-                        }else{
-                            player.sendMessage("[accent]Could not find IP for uuid:[scarlet]" + uuid
-                                    + "\n[accent]Please send a screenshot of this to Recessive");
-                        }
-
-                        player.sendMessage("[accent]ID: [white]" + id + " [accent]([white]" +
-                                networkDB.safeGet(uuid, "latestName") + "[accent]) unbanned.");
-                        networkDB.saveRow(uuid);
-                        return;
-                    }
-                }
-            }catch(SQLException e){
-                e.printStackTrace();
-                player.sendMessage("Invalid SQL");
-                return;
-            }
-
-
-        };
-
-        handler.<Player>register("unban", "<id>", "[scarlet]Unban an id. Check ids with /bans (admin only)", (args, player) -> {
-            unbanCommand.apply(args).accept(player);
-        });
-
-
-
         handler.<Player>register("historyhere", "Display history for the tile you're positioned over", (args, player) -> {
             player.sendMessage(displayHistory(player.tileX(), player.tileY()));
         });
@@ -903,6 +784,134 @@ public class AABase extends Plugin{
 
 
         });
+
+        Function<String[], Consumer<Player>> banList = args -> player -> {
+            if(!player.isAdmin){
+                player.sendMessage("[accent]Admin only!");
+                return;
+            }
+            int page;
+            try{
+                page = Integer.parseInt(args[0]);
+            }catch(NumberFormatException ignored){
+                player.sendMessage("[accent]Invalid page number: [scarlet]" + args[0]);
+                return;
+            }
+            String s = "[accent]Below is a list of bans: (page [gold]" + page + "/";
+            ResultSet rs = networkDB.customQuery("SELECT * FROM player_data WHERE banPeriod>"
+                    + Instant.now().getEpochSecond() + ";");
+
+            try {
+                ResultSet rs_temp = networkDB.customQuery("SELECT COUNT(*) FROM player_data WHERE banPeriod>0"
+                        + Instant.now().getEpochSecond() + ";");
+                int size = rs_temp.getInt(1);
+                rs_temp.close();
+                if(size == 0){
+                    player.sendMessage("[accent]No active bans!");
+                    rs.close();
+                    return;
+                }
+                if(page < 1 || page > size/5 + 1){
+                    player.sendMessage("[accent]Page must be between [scarlet]1[accent] and [scarlet]" + (size/5 + 1));
+                    rs.close();
+                    return;
+                }
+                s += (size/5 + 1) + "[accent])";
+                int i = -1;
+                while (rs.next()) {
+                    i ++;
+                    if(i / 5 + 1 == page){
+                        s += "\n[gold] " + (i+1) + "[white]: " + rs.getString(5) + "[accent], ban time: [scarlet]"
+                                + (rs.getInt(8) - Instant.now().getEpochSecond())/60 + "[accent] minutes";
+                    }
+                }
+                rs.close();
+            }catch(SQLException e){
+                e.printStackTrace();
+                player.sendMessage("Invalid SQL");
+                return;
+            }
+
+            player.sendMessage(s);
+
+        };
+
+        handler.<Player>register("bans", "<page>", "[scarlet]View current banned ids (admin only)", (args, player) -> {
+            banList.apply(args).accept(player);
+        });
+
+
+        Function<String[], Consumer<Player>> unbanCommand = args -> player -> {
+            if(!player.isAdmin){
+                player.sendMessage("[accent]Admin only!");
+                return;
+            }
+
+            int id;
+            try{
+                id = Integer.parseInt(args[0]);
+            }catch(NumberFormatException ignored){
+                player.sendMessage("[accent]Invalid id: [scarlet]" + args[0]);
+                return;
+            }
+
+            ResultSet rs = networkDB.customQuery("SELECT * FROM player_data WHERE banPeriod>"
+                    + Instant.now().getEpochSecond() + ";");
+            try {
+                ResultSet rs_temp = networkDB.customQuery("SELECT COUNT(*) FROM player_data WHERE banPeriod>0"
+                        + Instant.now().getEpochSecond() + ";");
+                int size = rs_temp.getInt(1);
+                rs_temp.close();
+                if(size == 0){
+                    player.sendMessage("[accent]No active bans!");
+                    rs.close();
+                    return;
+                }
+                if(id < 1 || id > size){
+                    player.sendMessage("id must be between [scarlet]1[accent] and [scarlet]" + size);
+                    rs.close();
+                    return;
+                }
+
+                int i = 0;
+                while (rs.next()) {
+                    i ++;
+                    if(i == id){
+                        String uuid = rs.getString(1);
+                        networkDB.loadRow(uuid);
+                        String ip = (String) networkDB.safeGet(uuid, "ip");
+                        networkDB.safePut(uuid, "banPeriod", Instant.now().getEpochSecond());
+                        networkDB.safePut(uuid, "banReason", "Unbanned by: " + player.name);
+                        if(banDB.hasRow(ip)){
+                            banDB.loadRow(ip);
+                            banDB.safePut(ip, "banPeriod", Instant.now().getEpochSecond());
+                            banDB.safePut(ip, "banReason", "Unbanned by: " + player.name);
+                            banDB.saveRow(ip);
+                        }else{
+                            player.sendMessage("[accent]Could not find IP for uuid:[scarlet]" + uuid
+                                    + "\n[accent]Please send a screenshot of this to Recessive");
+                        }
+
+                        player.sendMessage("[accent]ID: [white]" + id + " [accent]([white]" +
+                                networkDB.safeGet(uuid, "latestName") + "[accent]) unbanned.");
+                        networkDB.saveRow(uuid);
+                        rs.close();
+                        return;
+                    }
+                }
+            }catch(SQLException e){
+                e.printStackTrace();
+                player.sendMessage("Invalid SQL");
+                return;
+            }
+
+
+        };
+
+        handler.<Player>register("unban", "<id>", "[scarlet]Unban an id. Check ids with /bans (admin only)", (args, player) -> {
+            unbanCommand.apply(args).accept(player);
+        });
+
 
         handler.<Player>register("endgame", "[scarlet]Ends the game (admin only)", (args, player) ->{
             if(!player.isAdmin){
