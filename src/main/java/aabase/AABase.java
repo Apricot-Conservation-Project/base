@@ -582,7 +582,7 @@ public class AABase extends Plugin{
                 return;
             }
 
-            if(currentVoteBan){
+            if(currentVoteBan && !player.isAdmin){
                 player.sendMessage("[accent]There is already a vote in progress");
                 return;
             }
