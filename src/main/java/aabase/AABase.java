@@ -488,7 +488,7 @@ public class AABase extends Plugin{
                 Call.sendMessage(player.name + "[accent] voted [scarlet]not[accent] to ban [white]" + uuidMapping.get(uuidTrial).player.name +
                         " [accent]([scarlet]" + votes + "[accent]/[scarlet]" + requiredVotes + "[accent])");
             }else{
-                player.sendMessage("[accent]Type [orange]/banid <y/n>[accent] to vote.");
+                player.sendMessage("[accent]Type [orange]/vote <y/n>[accent] to vote.");
             }
         });
 
@@ -621,7 +621,7 @@ public class AABase extends Plugin{
                 networkDB.safePut(uuid, "ip", ip);
                 networkDB.saveRow(uuid);
                 Call.sendMessage(player.name + "[accent] has banned [white]" + uuidMapping.get(uuid).player.name +
-                        " for [scarlet]" + minutes + "[accent] minutes");
+                        " for [scarlet]" + minutes + "[accent] minutes\nReason: [white]" + reason);
                 String s = reason;
                 playerGroup.all().each(p -> p.uuid != null && p.uuid.equals(uuid), p -> p.con.kick("[accent]You are banned for another [scarlet]" +
                         minutes + "[accent] minutes.\nReason: [white]" + s));
@@ -641,7 +641,7 @@ public class AABase extends Plugin{
                     "\nType [orange]/banid <y/n>[accent] to vote.");
 
             String finalReason = reason;
-            Time.runTask(60 * 90, () -> {
+            Time.runTask(60 * 45, () -> {
                 currentVoteBan = false;
                 if(votes >= requiredVotes){
                     String ip = netServer.admins.getInfo(uuid).lastIP;
@@ -879,7 +879,7 @@ public class AABase extends Plugin{
                     if(i == id){
                         String uuid = rs.getString(1);
                         networkDB.loadRow(uuid);
-                        String ip = (String) networkDB.safeGet(uuid, "ip");
+                        String ip = (String) networkDB.safeGet(uuid, "ip"); // FIX
                         networkDB.safePut(uuid, "banPeriod", Instant.now().getEpochSecond());
                         networkDB.safePut(uuid, "banReason", "Unbanned by: " + player.name);
                         if(banDB.hasRow(ip)){
