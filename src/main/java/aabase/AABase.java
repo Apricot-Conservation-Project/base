@@ -35,8 +35,8 @@ public class AABase extends Plugin{
 
     private final Random rand = new Random(System.currentTimeMillis());
 
-    private final static int minuteTime = 60 * 60;
-    private final static int timerMinute = 0;
+    private final static int minuteTime = 60 * 60, announcementTime = 60 * 60 * 5;
+    private final static int timerMinute = 0, timerAnnouncement = 1;
     private final Interval interval = new Interval(10);
 
     private final DBInterface networkDB = new DBInterface("player_data", true);
@@ -53,6 +53,11 @@ public class AABase extends Plugin{
     private final HistoryHandler historyHandler = new HistoryHandler();
     private static final String[] commands = {"[scarlet]attack[white]", "[yellow]retreat[white]", "[orange]rally[white]"};
 
+    private int announcementIndex = 0;
+    private String[] announcements = {"[accent]Join the discord with [purple]/discord[accent]!",
+            "[accent]Donate with [scarlet]/donate [accent]to receive double or triple XP, custom name colors, " +
+                    "death and spawn particles, events in assimilation and many more perks!",
+            "[accent]Use [scarlet]/info[accent] to get a description of the current game mode!"};
 
     private boolean currentVoteBan = false;
     private int votes = 0;
@@ -124,6 +129,11 @@ public class AABase extends Plugin{
                     player.playTime += 1;
                     Call.setHudTextReliable(player.con, "[accent]Play time: [scarlet]" + player.playTime + "[accent] mins.");
                 }
+            }
+
+            if(interval.get(timerAnnouncement, announcementTime)){
+                Call.sendMessage(announcements[announcementIndex]);
+                announcementIndex = (announcementIndex + 1) % announcements.length;
             }
         });
 
