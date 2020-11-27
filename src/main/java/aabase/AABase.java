@@ -602,7 +602,7 @@ public class AABase extends Plugin{
             networkDB.loadRow(uuid);
             boolean currentlyBanned = (int) networkDB.safeGet(uuid, "banPeriod") > Instant.now().getEpochSecond();
 
-            if(currentlyBanned){
+            if(currentlyBanned && !player.isAdmin){
                 player.sendMessage("[accent]Player is already banned!");
                 networkDB.saveRow(uuid);
                 return;
@@ -832,7 +832,8 @@ public class AABase extends Plugin{
                     i ++;
                     if(i / 5 + 1 == page){
                         s += "\n[gold] " + (i+1) + "[white]: " + rs.getString(5) + "[accent], ban time: [scarlet]"
-                                + (rs.getInt(8) - Instant.now().getEpochSecond())/60 + "[accent] minutes";
+                                + (rs.getInt(8) - Instant.now().getEpochSecond())/60 + "[accent] minutes, reason: [sky]"
+                                + rs.getString(9);
                     }
                 }
                 rs.close();
