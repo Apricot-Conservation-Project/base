@@ -1,12 +1,13 @@
-package aabase;
+package main;
 
-import arc.struct.Array;
+import arc.struct.Seq;
 import arc.util.Log;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.HashMap;
+import java.util.List;
 import java.util.function.Consumer;
 
 public class PipeHandler {
@@ -15,7 +16,7 @@ public class PipeHandler {
 
     public boolean invalid = false;
 
-    private HashMap<String, Array<Consumer <String>>> actions = new HashMap<>();
+    private HashMap<String, Seq<Consumer <String>>> actions = new HashMap<>();
 
     public PipeHandler(String pipeName){
         this.pipeName = pipeName;
@@ -43,7 +44,7 @@ public class PipeHandler {
         if(actions.containsKey(message)){
             actions.get(message).add(r);
         }else{
-            actions.put(message, Array.with(r));
+            actions.put(message, Seq.with(r));
         }
 
     }

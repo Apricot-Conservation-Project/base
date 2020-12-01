@@ -1,4 +1,4 @@
-package aabase;
+package main;
 
 public class StringHandler {
 
