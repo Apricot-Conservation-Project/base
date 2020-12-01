@@ -847,8 +847,7 @@ public class AABase extends Plugin{
                 player.sendMessage("[accent]Only donators have access to this command");
                 return;
             }
-            player.sendMessage("Temp disabled");
-            // player.kill();
+            player.clearUnit();
         });
 
         handler.<Player>register("tp", "[player/id]", "[sky]Teleport to player (donator only)", (args, player) -> {
