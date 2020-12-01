@@ -271,15 +271,16 @@ public class AABase extends Plugin{
                 if(event.tile.block() == Blocks.commandCenter){
                     for(Tile t : tiles){
                         historyHandler.addEntry(t.x, t.y,
-                        "[orange] ~ [accent]" + event.player.name + "[accent]:" +
-                            commands[(int) event.value]);
+                        "[orange] ~ [accent]" + event.player.name + "[accent]: " +
+                            event.value);
                     }
                 }else {
+                    Log.info(event.value);
                     for(Tile t : tiles){
                         historyHandler.addEntry(t.x, t.y,
                         "[orange] ~ [accent]" + event.player.name + "[accent]:" +
-                                " changed config" + (Vars.content.item((int) event.value) == null ? " to default" :
-                                " to " + Vars.content.item((int) event.value).name));
+                                " changed config" + (event.value == null ? " to default" :
+                                " to " + event.value));
                     }
                 }
 
