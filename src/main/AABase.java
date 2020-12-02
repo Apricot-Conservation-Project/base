@@ -52,7 +52,8 @@ public class AABase extends Plugin{
 
     private int announcementIndex = 0;
     private String[] announcements = {"[accent]Join the discord with [purple]/discord[accent]!",
-            "[accent]Donate with [scarlet]/donate [accent]to receive double or triple XP, custom name colors, " +
+            "[accent]Donate with [scarlet]/donate [accent]to help keep the server alive! Additionally, " +
+                    "receive double or triple XP, custom name colors, " +
                     "death and spawn particles, events in assimilation and many more perks!",
             "[accent]Use [scarlet]/info[accent] to get a description of the current game mode!"};
 
@@ -275,7 +276,6 @@ public class AABase extends Plugin{
                             event.value);
                     }
                 }else {
-                    Log.info(event.value);
                     for(Tile t : tiles){
                         historyHandler.addEntry(t.x, t.y,
                         "[orange] ~ [accent]" + event.player.name + "[accent]:" +
@@ -418,6 +418,7 @@ public class AABase extends Plugin{
 
         handler.<Player>register("transfer", "<username> <password>",
                 "Transfer stats over from a registered account", (args, player) -> {
+
             if(!userDB.hasRow(args[0])){
                 player.sendMessage("[accent]Invalid username or password");
                 return;
@@ -474,7 +475,6 @@ public class AABase extends Plugin{
 
         handler.<Player>register("register", "<username> <password>", "Register an account with " +
                 "your uuid so you don't lose data when updating.", (args, player) -> {
-
 
             networkDB.loadRow(player.uuid());
             if((int) networkDB.safeGet(player.uuid(), "registered") == 1){
@@ -892,8 +892,6 @@ public class AABase extends Plugin{
             Call.effectReliable(Fx.teleportActivate, other.x, other.y, 0, Color.white);
 
             Call.setPosition(player.con, other.x, other.y);
-
-            Log.info(player.x + ", " + player.y);
 
 
 
