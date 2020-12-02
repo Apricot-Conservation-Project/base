@@ -526,24 +526,24 @@ public class AABase extends Plugin{
 
         });
 
-        handler.<Player>register("assim", "Connect to the Assimilation server", (args, player) -> {
-            net.pingHost("aamindustry.play.ai", 6568, host ->{
-                Call.connect(player.con, "aamindustry.play.ai", 6568);
-            }, e ->{
-                player.sendMessage("[accent]Server offline");
-            });
-        });
-
         handler.<Player>register("plague", "Connect to the Plague server", (args, player) -> {
-            net.pingHost("aamindustry.play.ai", 6569, host ->{
+            net.pingHost("aamindustry.play.ai", 6571, host ->{
                 Call.connect(player.con, "aamindustry.play.ai", 6569);
             }, e ->{
                 player.sendMessage("[accent]Server offline");
             });
         });
 
+        handler.<Player>register("assim", "Connect to the Assimilation server", (args, player) -> {
+            net.pingHost("aamindustry.play.ai", 6572, host ->{
+                Call.connect(player.con, "aamindustry.play.ai", 6568);
+            }, e ->{
+                player.sendMessage("[accent]Server offline");
+            });
+        });
+
         handler.<Player>register("campaign", "Connect to the Campaign server", (args, player) -> {
-            net.pingHost("aamindustry.play.ai", 6570, host ->{
+            net.pingHost("aamindustry.play.ai", 6573, host ->{
                 Call.connect(player.con, "aamindustry.play.ai", 6570);
             }, e ->{
                 player.sendMessage("[accent]Server offline");
