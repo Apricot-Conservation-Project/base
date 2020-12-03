@@ -213,7 +213,7 @@ public class AABase extends Plugin{
             networkDB.saveRow(event.player.uuid(), false);
 
             String prefix = (String) networkDB.safeGet(event.player.uuid(), "namePrefix");
-            event.player.name = stringHandler.donatorMessagePrefix(dLevel) + prefix + Strings.stripColors(event.player.name);
+            event.player.name = (event.player.admin ? "" : stringHandler.donatorMessagePrefix(dLevel)) + prefix + Strings.stripColors(event.player.name);
 
             event.player.playTime = (int) networkDB.safeGet(event.player.uuid(),"playTime");
             event.player.donateLevel = dLevel;
