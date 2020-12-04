@@ -94,6 +94,14 @@ public class AABase extends Plugin{
             Log.info("Pipe not found. Assuming this server is the hub server");
         }
 
+        netServer.admins.addActionFilter((action) -> {
+
+            if(action.player != null && action.player.uuid().equals(uuidTrial)){
+                return false;
+            }
+            return true;
+        });
+
         /*netServer.admins.addChatFilter((player, text) -> {
             if(player.uuid().equals("rJ2w2dsR3gQAAAAAfJfvXA==") && text.contains(" ")){
                 String[] split = text.split(" ");
