@@ -307,9 +307,19 @@ public class AABase extends Plugin{
             }
             if(uuidMapping.get(event.player.uuid()).destroyMode){
                 if(event.tile.build != null){
+                    Call.sendMessage(event.player.name + " [accent]used [scarlet]/destroy[accent] to break [scarlet]" +
+                            event.tile.block().name + "[accent] at ([scarlet]" + event.tile.x + "[accent],[scarlet]" +
+                            event.tile.y + "[accent])");
                     event.tile.build.damage(event.tile.build.health);
-                    event.player.sendMessage("[accent]Building destroyed");
+
                     uuidMapping.get(event.player.uuid()).destroyMode = false;
+
+                    Seq<Tile> tiles = event.tile.getLinkedTiles(new Seq<>());
+                    for(Tile t : tiles){
+                        historyHandler.addEntry(t.x, t.y,
+                                "[scarlet]! [accent]" + event.player.name + "[accent]:" +
+                                        " used [scarlet]/destroy[accent] to break this block");
+                    }
                 }
             }
         });
