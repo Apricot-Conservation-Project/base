@@ -863,7 +863,7 @@ public class AABase extends Plugin{
             }
 
             if(!Strings.stripColors(args[0]).equals("")){
-                player.sendMessage("[accent]Must be a valid color");
+                player.sendMessage("[accent]Must be a valid color. For example: [aqua] (aqua is not a valid color, this is just an example)");
                 return;
             }
 
