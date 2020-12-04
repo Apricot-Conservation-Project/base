@@ -13,6 +13,7 @@ public class CustomPlayer{
     public boolean historyMode = false;
     public int lastvoteBan;
     public boolean destroyMode = false;
+    public String namePrefix;
 
 
     public CustomPlayer(Player player){

@@ -226,6 +226,7 @@ public class AABase extends Plugin{
 
             String prefix = (String) networkDB.safeGet(event.player.uuid(), "namePrefix");
             event.player.name = (event.player.admin ? "" : stringHandler.donatorMessagePrefix(dLevel)) + prefix + Strings.stripColors(event.player.name);
+            event.player.color = Color.white;
 
             event.player.playTime = (int) networkDB.safeGet(event.player.uuid(),"playTime");
             event.player.donateLevel = dLevel;
@@ -866,8 +867,9 @@ public class AABase extends Plugin{
                 return;
             }
 
-            networkDB.safePut(player.uuid(), "namePrefix", args[0], true);
-            player.name = stringHandler.donatorMessagePrefix(player.donateLevel) + args[0] + Strings.stripColors(uuidMapping.get(player.uuid()).rawName);
+            uuidMapping.get(player.uuid()).namePrefix = args[0];
+            player.name = (player.admin ? "" : stringHandler.donatorMessagePrefix(player.donateLevel)) + args[0]
+                    + Strings.stripColors(uuidMapping.get(player.uuid()).rawName);
             Events.fire(new EventType.CustomEvent(new String[]{"newName", player.uuid()}));
             player.sendMessage("[accent]Name color updated.");
         });
@@ -1131,6 +1133,7 @@ public class AABase extends Plugin{
         Player player = uuidMapping.get(uuid).player;
         networkDB.loadRow(uuid);
         if((int) networkDB.safeGet(uuid, "playTime") < player.playTime) networkDB.safePut(uuid,"playTime", player.playTime);
+        networkDB.safePut(player.uuid(), "namePrefix", uuidMapping.get(uuid).namePrefix);
         networkDB.saveRow(uuid);
     }
 
