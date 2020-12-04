@@ -63,6 +63,8 @@ public class AABase extends Plugin{
     private String uuidTrial;
     private List<String> voted;
 
+    private boolean codeRed = false;
+
     //register event handlers and create variables in the constructor
     public void init(){
         System.out.println("loaded");
@@ -95,8 +97,10 @@ public class AABase extends Plugin{
         }
 
         netServer.admins.addActionFilter((action) -> {
+            if(codeRed) return false;
 
-            if(action.player != null && action.player.uuid() == uuidTrial){
+
+            if(currentVoteBan && action.player != null && action.player.uuid() == uuidTrial){
                 return false;
             }
             return true;
@@ -1034,6 +1038,26 @@ public class AABase extends Plugin{
 
         handler.<Player>register("unban", "<id>", "[scarlet]Unban an id. Check ids with /bans (admin only)", (args, player) -> {
             unbanCommand.apply(args).accept(player);
+        });
+
+        handler.<Player>register("destroy", "[scarlet]Destroy the block you are over (admin only)", (args, player) -> {
+            Building build = world.tile(player.tileX(), player.tileY()).build;
+            if(build != null){
+                build.damage(build.health);
+                player.sendMessage("[accent]Building destroyed");
+            }else{
+                player.sendMessage("[accent]No building at (" + player.tileX() + ", " + player.tileY() + ")");
+            }
+        });
+
+        handler.<Player>register("cr", "[scarlet]Code red, blocks all actions for 10 seconds", (args, player) -> {
+            codeRed = true;
+            Call.sendMessage(player.name + " [scarlet]has called a code red! All actions are blocked for the next 30 seconds");
+            Time.runTask(60 * 30, () -> {
+                codeRed = false;
+                Call.sendMessage("[accent]Code red over");
+            });
+
         });
 
 
