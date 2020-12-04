@@ -64,7 +64,7 @@ public class AABase extends Plugin{
     private List<String> voted;
 
     //register event handlers and create variables in the constructor
-    public AABase(){
+    public void init(){
         System.out.println("loaded");
 
         networkDB.connect("../network-files/network_data.db");
@@ -96,7 +96,7 @@ public class AABase extends Plugin{
 
         netServer.admins.addActionFilter((action) -> {
 
-            if(action.player != null && action.player.uuid().equals(uuidTrial)){
+            if(action.player != null && action.player.uuid() == uuidTrial){
                 return false;
             }
             return true;
