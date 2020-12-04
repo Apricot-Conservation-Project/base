@@ -1041,6 +1041,10 @@ public class AABase extends Plugin{
         });
 
         handler.<Player>register("destroy", "[scarlet]Destroy the block you are over (admin only)", (args, player) -> {
+            if(!player.admin){
+                player.sendMessage("[accent]Admin only!");
+                return;
+            }
             Building build = world.tile(player.tileX(), player.tileY()).build;
             if(build != null){
                 build.damage(build.health);
@@ -1051,6 +1055,10 @@ public class AABase extends Plugin{
         });
 
         handler.<Player>register("cr", "[scarlet]Code red, blocks all actions for 10 seconds", (args, player) -> {
+            if(!player.admin){
+                player.sendMessage("[accent]Admin only!");
+                return;
+            }
             codeRed = true;
             Call.sendMessage(player.name + " [scarlet]has called a code red! All actions are blocked for the next 30 seconds");
             Time.runTask(60 * 30, () -> {
