@@ -305,6 +305,13 @@ public class AABase extends Plugin{
             if(uuidMapping.get(event.player.uuid()).historyMode){
                 event.player.sendMessage(displayHistory(event.tile.x, event.tile.y));
             }
+            if(uuidMapping.get(event.player.uuid()).destroyMode){
+                if(event.tile.build != null){
+                    event.tile.build.damage(event.tile.build.health);
+                    event.player.sendMessage("[accent]Building destroyed");
+                    uuidMapping.get(event.player.uuid()).destroyMode = false;
+                }
+            }
         });
 
 
@@ -1040,18 +1047,18 @@ public class AABase extends Plugin{
             unbanCommand.apply(args).accept(player);
         });
 
-        handler.<Player>register("destroy", "[scarlet]Destroy the block you are over (admin only)", (args, player) -> {
+        handler.<Player>register("destroy", "[scarlet]Destroy the next block you click/tap (admin only)", (args, player) -> {
             if(!player.admin){
                 player.sendMessage("[accent]Admin only!");
                 return;
             }
-            Building build = world.tile(player.tileX(), player.tileY()).build;
-            if(build != null){
-                build.damage(build.health);
-                player.sendMessage("[accent]Building destroyed");
-            }else{
-                player.sendMessage("[accent]No building at (" + player.tileX() + ", " + player.tileY() + ")");
+            if(uuidMapping.get(player.uuid()).destroyMode){
+                player.sendMessage("[accent]Destroy mode disabled");
+                uuidMapping.get(player.uuid()).destroyMode = false;
+                return;
             }
+            player.sendMessage("[accent]The next building you click/tap will be destroyed");
+            uuidMapping.get(player.uuid()).destroyMode = true;
         });
 
         handler.<Player>register("cr", "[scarlet]Code red, blocks all actions for 10 seconds", (args, player) -> {

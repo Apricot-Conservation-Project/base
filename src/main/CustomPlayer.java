@@ -12,6 +12,7 @@ public class CustomPlayer{
     public String rawName;
     public boolean historyMode = false;
     public int lastvoteBan;
+    public boolean destroyMode = false;
 
 
     public CustomPlayer(Player player){
