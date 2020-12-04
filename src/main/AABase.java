@@ -311,7 +311,7 @@ public class AABase extends Plugin{
                     Call.sendMessage(event.player.name + " [accent]used [scarlet]/destroy[accent] to break [scarlet]" +
                             event.tile.block().name + "[accent] at ([scarlet]" + event.tile.x + "[accent],[scarlet]" +
                             event.tile.y + "[accent])");
-                    event.tile.build.damage(event.tile.build.health);
+                    Call.tileDestroyed(event.tile.build);
 
                     uuidMapping.get(event.player.uuid()).destroyMode = false;
 
