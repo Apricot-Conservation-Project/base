@@ -14,6 +14,7 @@ public class CustomPlayer{
     public int lastvoteBan;
     public boolean destroyMode = false;
     public String namePrefix;
+    public int dTime;
 
 
     public CustomPlayer(Player player){

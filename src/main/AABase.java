@@ -36,6 +36,9 @@ public class AABase extends Plugin{
     private final Interval interval = new Interval(10);
 
     private final DBInterface networkDB = new DBInterface("player_data", true);
+    private final DBInterface assimDB = new DBInterface("player_data", true);
+    private final DBInterface plagueDB = new DBInterface("player_data", true);
+    private final DBInterface campaignDB = new DBInterface("player_data", true);
     private final DBInterface banDB = new DBInterface("ip_bans", true);
     private final DBInterface userDB = new DBInterface("users", true);
 
@@ -69,6 +72,10 @@ public class AABase extends Plugin{
     public void init(){
         System.out.println("loaded");
 
+        assimDB.connect("../network-files/assimilation_data.db");
+        plagueDB.connect("../network-files/plague_data.db");
+        campaignDB.connect("../network-files/campaign_data.db");
+
         networkDB.connect("../network-files/network_data.db");
         banDB.connect(networkDB.conn);
         userDB.connect(networkDB.conn);
@@ -95,6 +102,8 @@ public class AABase extends Plugin{
         }else{
             Log.info("Pipe not found. Assuming this server is the hub server");
         }
+
+        state.rules.fire = false;
 
         netServer.admins.addActionFilter((action) -> {
             if(codeRed) return false;
@@ -217,6 +226,8 @@ public class AABase extends Plugin{
 
             CustomPlayer cply = uuidMapping.get(event.player.uuid());
 
+
+
             cply.connected = true;
 
             // Save name to database
@@ -232,6 +243,7 @@ public class AABase extends Plugin{
             event.player.donateLevel = dLevel;
 
             if(dLevel > 0){
+                cply.dTime = (int) networkDB.safeGet(event.player.uuid(), "donateExpire");
                 Call.sendMessage(event.player.name + "[accent] has joined the game");
             }
 
@@ -846,6 +858,26 @@ public class AABase extends Plugin{
                     "[green]start events[accent] and [green]donator commands[accent]!\n\nYou can donate at:\n" +
                     "[gold]Donator [scarlet]1[accent]: https://shoppy.gg/product/i4PeGjP\n" +
                     "[gold]Donator [scarlet]2[accent]: https://shoppy.gg/product/x1tMDJE\n\nThese links are also on the discord server");
+        });
+
+        handler.<Player>register("dtime", "Time remaining for your donator rank", (args, player) -> {
+            if(player.donateLevel != 0){
+                int timeRemaining = uuidMapping.get(player.uuid()).dTime - (int) (System.currentTimeMillis()/1000);
+                if(timeRemaining <= 0){
+                    player.sendMessage("[accent]You have no time remaining. Next time you log in you will " +
+                            "no longer have donator.");
+                }
+                int days = timeRemaining/86400;
+                int hours = (timeRemaining - days*86400)/3600;
+                int minutes = (timeRemaining -(hours*3600 + days*86400))/60;
+                player.sendMessage("[accent]You have [scarlet]" + days + "[accent] day" +
+                        (days != 1 ? "s": "") + ", [scarlet]" + hours + "[accent] hour" +
+                        (hours != 1 ? "s" : "") + " and [scarlet]" + minutes + "[accent] minute" +
+                        (minutes != 1 ? "s" : ""));
+            }else{
+                player.sendMessage("[accent]You are no a donator!");
+            }
+
         });
 
         handler.<Player>register("color", "[color]", "[sky]Set the color of your name", (args, player) ->{
