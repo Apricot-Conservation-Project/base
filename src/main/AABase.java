@@ -39,6 +39,7 @@ public class AABase extends Plugin{
     private final DBInterface assimDB = new DBInterface("player_data", true);
     private final DBInterface plagueDB = new DBInterface("player_data", true);
     private final DBInterface campaignDB = new DBInterface("player_data", true);
+    private final DBInterface assaultDB = new DBInterface("player_data", true);
     private final DBInterface banDB = new DBInterface("ip_bans", true);
     private final DBInterface userDB = new DBInterface("users", true);
 
@@ -75,6 +76,7 @@ public class AABase extends Plugin{
         assimDB.connect("../network-files/assimilation_data.db");
         plagueDB.connect("../network-files/plague_data.db");
         campaignDB.connect("../network-files/campaign_data.db");
+        assaultDB.connect("../network-files/assault_data.db");
 
         networkDB.connect("../network-files/network_data.db");
         banDB.connect(networkDB.conn);
@@ -587,6 +589,14 @@ public class AABase extends Plugin{
         handler.<Player>register("campaign", "Connect to the Campaign server", (args, player) -> {
             net.pingHost("aamindustry.play.ai", 6573, host ->{
                 Call.connect(player.con, "aamindustry.play.ai", 6573);
+            }, e ->{
+                player.sendMessage("[accent]Server offline");
+            });
+        });
+
+        handler.<Player>register("assault", "Connect to the Assault server", (args, player) -> {
+            net.pingHost("aamindustry.play.ai", 6574, host ->{
+                Call.connect(player.con, "aamindustry.play.ai", 6574);
             }, e ->{
                 player.sendMessage("[accent]Server offline");
             });
