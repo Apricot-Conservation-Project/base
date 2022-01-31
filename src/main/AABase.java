@@ -27,6 +27,7 @@ public class AABase extends Plugin{
 
     private final Random rand = new Random(System.currentTimeMillis());
 
+    private final static float serverCloseTime = 60f * 2f;
     private final static int minuteTime = 60 * 60, announcementTime = 60 * 60 * 5;
     private final static int timerMinute = 0, timerAnnouncement = 1;
     private final Interval interval = new Interval(10);
@@ -378,7 +379,7 @@ public class AABase extends Plugin{
                 // I shouldn't need this, all players should be gone since I connected them to hub
                 netServer.kickAll(Packets.KickReason.serverRestarting);
                 Log.info("Game ended successfully.");
-                Time.runTask(5f * 60f, () -> System.exit(2));
+                Time.runTask(serverCloseTime, () -> System.exit(2));
             });
         });
     }
@@ -928,7 +929,7 @@ public class AABase extends Plugin{
                 // I shouldn't need this, all players should be gone since I connected them to hub
                 netServer.kickAll(Packets.KickReason.serverRestarting);
                 Log.info("Game ended successfully.");
-                Time.runTask(5f * 60f, () -> System.exit(2));
+                Time.runTask(serverCloseTime, () -> System.exit(2));
             });
         });
 
