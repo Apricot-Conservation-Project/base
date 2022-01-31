@@ -7,154 +7,140 @@ import java.util.HashMap;
 
 
 public class DBInterface {
-    public String table;
-    public String key;
     public Connection conn = null;
-    public HashMap<String, HashMap<String, Object>> entries = new HashMap<String, HashMap<String, Object>>();
 
-    public boolean locked = false;
-    public boolean multipleUsers = false;
+    private PreparedStatement preparedStatement = null;
 
-    public DBInterface(String database){
-        this(database, false);
-    }
-
-    public DBInterface(String database, boolean multipleUsers){
-        this.table = database;
-        this.multipleUsers = multipleUsers;
-        this.locked = multipleUsers;
-    }
-
-    public void connect(String db){
+    public void connect(String db, String username, String password){
         // SQLite connection string
-        String url = "jdbc:sqlite:" + db;
+        String url = "jdbc:mysql://localhost/" + db;
         try {
-            Class.forName("org.sqlite.JDBC");
-            conn = DriverManager.getConnection(url);
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            conn = DriverManager.getConnection(url, username, password);
+            System.out.println("Connected to database successfully");
         } catch (SQLException | ClassNotFoundException e) {
             e.printStackTrace();
         }
-        System.out.println("Connected to database successfully");
-        // Initialise primaryKey
-        setKey();
     }
 
-    public void connect(Connection c){
-        conn = c;
-        setKey();
+    public boolean hasRow(String table, String key, Object val){
+        return hasRow(table, new String[]{key}, new Object[]{val});
     }
 
-    private void setKey(){
-        String sql = "pragma table_info('" + table + "');";
-        try {
-            Statement stmt  = conn.createStatement();
-            ResultSet rs    = stmt.executeQuery(sql);
-            key = rs.getString(2);
-            rs.close();
-        } catch (SQLException ignored) {
+    public boolean hasRow(String table, String[] keys, Object[] vals){
+        String sql = "SELECT * FROM " + table + " WHERE ";
+        for(int i=0; i<keys.length; i++){
+            sql += keys[i] + " = ?" + (i < keys.length-1 ? " AND " : "");
         }
-    }
-
-    public boolean hasRow(String key){
-        String sql;
-        sql = "SELECT " + this.key + " FROM " + table + " WHERE " + this.key + " = '" + key + "'";
         try {
-            Statement stmt  = conn.createStatement();
-            ResultSet rs    = stmt.executeQuery(sql);
+            preparedStatement = conn.prepareStatement(sql);
+            for(int i=0; i<vals.length; i++){
+                preparedStatement.setObject(i+1, vals[i]);
+            }
 
-            // loop through the result set
-            boolean isThere = rs.getString(this.key).length() != 0;
-            rs.close();
-            return isThere;
+            ResultSet rs = preparedStatement.executeQuery();
+
+            while(rs.next()){
+                rs.close();
+                return true;
+            }
         } catch (SQLException ignored) {
         }
         return false;
     }
 
-    public void addRow(String key){
-        String sql = "INSERT INTO " + this.table + "(" + this.key + ") VALUES('" + key + "')";
+    public void addEmptyRow(String table, String key, Object val){
+        addEmptyRow(table, new String[]{key}, new Object[]{val});
+    }
 
+    public void addEmptyRow(String table, String keys[], Object vals[]){
+        String sql = "INSERT INTO " + table + " (";
+        String keyString = "";
+        String valString = "";
+        for(int i=0; i<keys.length; i++){
+            keyString += keys[i] + (i < keys.length-1 ? ", " : "");
+            valString += "? " + (i < keys.length-1 ? ", " : "");
+        }
+        sql += keyString + ") VALUES(" + valString + ")";
         try {
-            Statement stmt = conn.createStatement();
-            stmt.executeUpdate(sql);
-            stmt.close();
+            preparedStatement = conn.prepareStatement(sql);
+            for(int i=0; i<vals.length; i++){
+                preparedStatement.setObject(i+1, vals[i]);
+            }
+            preparedStatement.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
-    public void loadRow(String key){
-        HashMap<String, Object> vals = new HashMap<String, Object>();
+    public HashMap<String, Object> loadRow(String table, String key, Object val){
+        return loadRow(table, new String[]{key}, new Object[]{val});
 
-        if(!hasRow(key)) addRow(key);
+    }
 
-        String sql = "SELECT * FROM " + this.table + " where " + this.key + " = '" + key + "'";
+    public HashMap<String, Object> loadRow(String table, String keys[], Object vals[]){
+        HashMap<String, Object> returnedVals = new HashMap<String, Object>();
 
-        Statement stmt;
+        if(!hasRow(table, keys, vals)) addEmptyRow(table, keys, vals);
+        String sql = "SELECT * FROM " + table + " WHERE ";
+        for(int i=0; i<keys.length; i++){
+            sql += keys[i] + " = ?" + (i < keys.length-1 ? " AND " : "");
+        }
+
         try {
-            stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql);
+            preparedStatement = conn.prepareStatement(sql);
+            for(int i=0; i<vals.length; i++){
+                preparedStatement.setObject(i+1, vals[i]);
+            }
+            ResultSet rs = preparedStatement.executeQuery();
+            rs.next();
             ResultSetMetaData rsmd = rs.getMetaData();
             for(int i = 1; i <= rsmd.getColumnCount(); i++){ // ONE INDEXED? REALLY?
-                vals.put(rsmd.getColumnName(i),rs.getObject(rsmd.getColumnName(i)));
+                returnedVals.put(rsmd.getColumnName(i),rs.getObject(rsmd.getColumnName(i)));
             }
             rs.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        entries.put(key, vals);
-        if(multipleUsers){
-            locked = false;
-            Time.runTask(60, () -> {locked = true;}); // 1 second delay
-        }
+
+        return returnedVals;
 
     }
-    public void saveRow(String key){
-        saveRow(key, true);
+
+    public void saveRow(String table, String searchKey, Object serachVal, String key, Object val){
+        saveRow(table, new String[]{searchKey}, new Object[]{serachVal}, new String[]{key}, new Object[]{val});
     }
 
-    public void saveRow(String key, boolean drop){
-        if(locked) {
-            throw new RuntimeException("Saving row after waiting too long");
-        }
+    public void saveRow(String table, String searchKey, Object serachVal, String keys[], Object vals[]){
+        saveRow(table, new String[]{searchKey}, new Object[]{serachVal}, keys, vals);
+    }
 
+    public void saveRow(String table, String searchKeys[], Object serachVals[], String key, Object val){
+        saveRow(table, searchKeys, serachVals, new String[]{key}, new Object[]{val});
+    }
+
+    public void saveRow(String table, String searchKeys[], Object searchVals[], String[] keys, Object[] vals){
+        String sql = "UPDATE " + table + " SET ";
+        for (int i=0; i < keys.length ; i++) {
+            sql += keys[i] + " = ?" + (i < keys.length-1 ? ", " : "");
+        }
+        sql += " WHERE ";
+        for(int i=0; i<searchKeys.length; i++){
+            sql += searchKeys[i] + " = ?" + (i < searchKeys.length-1 ? " AND " : "");
+        }
         try {
-            HashMap<String, Object> vals = entries.get(key);
-            String sql = "UPDATE " + this.table + " SET ";
-            try {
-
-                int c = 0;
-                for (Object _key : vals.keySet()) {
-                    if (vals.get(_key) == null) {
-                        continue;
-                    }
-                    if (c > 0) {
-                        sql += ",";
-                    }
-                    c++;
-                    if (vals.get(_key) instanceof String) {
-                        sql += _key + " = '" + vals.get(_key) + "'";
-                    } else if (vals.get(_key) instanceof Boolean) {
-                        sql += _key + " = " + ((boolean) vals.get(_key) ? 1 : 0);
-                    } else {
-                        sql += _key + " = " + vals.get(_key);
-                    }
-
-                }
-                sql += " WHERE " + this.key + " = '" + key + "'";
-
-                Statement stmt = conn.createStatement();
-                stmt.executeUpdate(sql);
-                stmt.close();
-            } catch (SQLException e) {
-                System.out.println("Query: " + sql);
-                e.printStackTrace();
+            preparedStatement = conn.prepareStatement(sql);
+            for (int i=0; i < keys.length; i++){
+                preparedStatement.setObject(i+1, vals[i]);
             }
-
-            if(drop) entries.remove(key);
-        }catch(NullPointerException e){
+            for (int i=0; i < searchKeys.length; i++){
+                preparedStatement.setObject(i+keys.length+1, searchVals[i]);
+            }
+            preparedStatement.executeUpdate();
+        } catch (SQLException e) {
             e.printStackTrace();
         }
+
 
     }
 
@@ -179,39 +165,15 @@ public class DBInterface {
 
     // Large scale modifications
 
-    public void setColumn(String col, Object value){
+    public void setColumn(String table, String col, Object value){
         // Sets an entire column to the provided value
         try {
-            String sql = "UPDATE " + this.table + " SET " + col + " = ";
-            if (value instanceof String) {
-                sql += "'" + value + "'";
-            } else if (value instanceof Boolean) {
-                sql += ((boolean) value ? 1 : 0);
-            } else {
-                sql += value;
-            }
-            Statement stmt = conn.createStatement();
-            stmt.executeUpdate(sql);
-            stmt.close();
+            String sql = "UPDATE " + table + " SET " + col + " = ?";
+            preparedStatement = conn.prepareStatement(sql);
+            preparedStatement.setObject(1, value);
+            preparedStatement.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
         }
-    }
-
-    public void safePut(String primaryKey, String key, Object value){
-        this.safePut(primaryKey, key, value, false);
-    }
-
-    public void safePut(String primaryKey, String key, Object value, boolean overwrite){
-        if(locked && !overwrite){
-            throw new RuntimeException("Accessing locked entries");
-        }else{
-            this.entries.get(primaryKey).put(key, value);
-        }
-    }
-
-    public Object safeGet(String primaryKey, String key){
-        return this.entries.get(primaryKey).get(key);
-
     }
 }

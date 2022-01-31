@@ -20,7 +20,6 @@ public class CustomPlayer{
     public CustomPlayer(Player player){
         this.player = player;
         this.rawName = player.name;
-        this.connected = true;
         this.lastvoteBan = (int) Instant.now().getEpochSecond() - 60 * 5;
     }
 
