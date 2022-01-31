@@ -376,7 +376,7 @@ public class AABase extends Plugin{
             Time.runTask(60f * 10f, () -> {
 
                 // I shouldn't need this, all players should be gone since I connected them to hub
-                // netServer.kickAll(KickReason.serverRestarting);
+                netServer.kickAll(Packets.KickReason.serverRestarting);
                 Log.info("Game ended successfully.");
                 Time.runTask(5f * 60f, () -> System.exit(2));
             });
@@ -928,7 +928,7 @@ public class AABase extends Plugin{
                 // I shouldn't need this, all players should be gone since I connected them to hub
                 netServer.kickAll(Packets.KickReason.serverRestarting);
                 Log.info("Game ended successfully.");
-                Time.runTask(5f, () -> System.exit(2));
+                Time.runTask(5f * 60f, () -> System.exit(2));
             });
         });
 
