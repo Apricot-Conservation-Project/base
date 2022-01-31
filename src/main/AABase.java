@@ -4,24 +4,20 @@ import arc.*;
 import arc.graphics.Color;
 import arc.struct.Seq;
 import arc.util.*;
-import mindustry.*;
 import mindustry.content.Blocks;
 import mindustry.content.Fx;
 import mindustry.game.*;
 import mindustry.gen.*;
 import mindustry.mod.*;
+import mindustry.net.Packets;
 import mindustry.world.Tile;
 import mindustry.world.blocks.power.PowerNode;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -51,8 +47,9 @@ public class AABase extends Plugin{
     private String[] announcements = {"[accent]Join the discord with [purple]/discord[accent]!",
             "[accent]Donate with [scarlet]/donate [accent]to help keep the server alive! Additionally, " +
                     "receive double XP, custom name colors, " +
-                    "death and spawn particles, events in assimilation and many more perks!",
-            "[accent]Use [scarlet]/info[accent] to get a description of the current game mode!"};
+                    "death and spawn particles and many more perks!",
+            "[accent]Use [scarlet]/info[accent] to get a description of the current game mode!",
+            "[accent]Checkout our website at [gold]https://recessive.net"};
 
     private boolean currentVoteBan = false;
     private int votes = 0;
@@ -105,6 +102,7 @@ public class AABase extends Plugin{
         });
 
         Events.on(EventType.PlayerConnect.class, event->{
+
             for(String swear : StringHandler.badNames){
                 if(Strings.stripColors(event.player.name.toLowerCase()).contains(swear)){
                     event.player.name = event.player.name.replaceAll("(?i)" + swear, "*");
@@ -133,6 +131,17 @@ public class AABase extends Plugin{
         });
 
         Events.on(EventType.PlayerJoin.class, event ->{
+            // Check if uuid already exists
+            AtomicInteger count = new AtomicInteger();
+            Groups.player.each(player -> {
+                if(player.uuid().equals(event.player.uuid())) count.getAndIncrement();
+            });
+
+            if(count.get() > 1){
+                event.player.con.kick("Already in the server");
+                return;
+            }
+
 
             // Databasing stuff first:
             if(!db.hasRow("mindustry_data", "uuid", event.player.uuid())){
@@ -366,14 +375,10 @@ public class AABase extends Plugin{
             Log.info("Ending game...");
             Time.runTask(60f * 10f, () -> {
 
-                for(Player player : Groups.player) {
-                    Call.connect(player.con, "recessive.net", 6567);
-                }
-
                 // I shouldn't need this, all players should be gone since I connected them to hub
                 // netServer.kickAll(KickReason.serverRestarting);
                 Log.info("Game ended successfully.");
-                Time.runTask(5f, () -> System.exit(2));
+                Time.runTask(5f * 60f, () -> System.exit(2));
             });
         });
     }
@@ -477,32 +482,27 @@ public class AABase extends Plugin{
             }
 
             String uuid;
-            if(args.length == 1){
-                Player found;
-                if(args[0].length() > 1 && args[0].startsWith("#") && Strings.canParseInt(args[0].substring(1))){
-                    int id = Strings.parseInt(args[0].substring(1));
-                    found = Groups.player.find(p -> p.id() == id);
+
+            boolean uuidArg = !args[0].matches("-?\\d+(\\.\\d+)?");
+            Player found;
+            if(args[0].length() > 1 && args[0].startsWith("#") && Strings.canParseInt(args[0].substring(1))){
+                int id = Strings.parseInt(args[0].substring(1));
+                found = Groups.player.find(p -> p.id() == id);
+            }else{
+                found = Groups.player.find(p -> p.name.equalsIgnoreCase(args[0]));
+            }
+            
+            if(found == null){
+                if(uuidArg){
+                    uuid = args[0];
+                }else if(idMapping.containsKey(args[0])) {
+                    uuid = idMapping.get(args[0]);
                 }else{
-                    found = Groups.player.find(p -> p.name.equalsIgnoreCase(args[0]));
-                }
-                if(found == null){
                     player.sendMessage("[accent]Invalid ID: [scarlet]" + args[0]);
                     return;
                 }
-
-                uuid = found.uuid();
             }else{
-                boolean uuidArg = !args[0].matches("-?\\d+(\\.\\d+)?");
-                if(uuidArg){
-                    uuid = args[0];
-                }else{
-                    if(idMapping.containsKey(args[0])){
-                        uuid = idMapping.get(args[0]);
-                    } else{
-                        player.sendMessage("[accent]Invalid ID: [scarlet]" + args[0]);
-                        return;
-                    }
-                }
+                uuid = found.uuid();
             }
 
 
@@ -553,12 +553,14 @@ public class AABase extends Plugin{
 
             uuidMapping.get(player.uuid()).lastvoteBan = (int) Instant.now().getEpochSecond();
 
-            HashMap<String, Object> entries = db.loadRow("bans", "uuid", uuid);
-            boolean currentlyBanned = (int) entries.get("banPeriod") > Instant.now().getEpochSecond();
+            String ip = netServer.admins.getInfo(uuid).lastIP;
 
-            if(currentlyBanned && !player.admin){
-                player.sendMessage("[accent]Player is already banned!");
-                return;
+            if(db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
+                HashMap<String, Object> entries = db.loadRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid});
+                if((int) entries.get("banPeriod") > Instant.now().getEpochSecond()){
+                    player.sendMessage("[accent]Player is already banned!");
+                    return;
+                }
             }
 
             String reason = null;
@@ -569,7 +571,7 @@ public class AABase extends Plugin{
 
             if(player.admin){
 
-                String ip = netServer.admins.getInfo(uuid).lastIP;
+
                 if(!db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
                     db.addEmptyRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid});
                 }
@@ -599,14 +601,13 @@ public class AABase extends Plugin{
                     uuidMapping.get(uuid).player.name + "[accent] to ban for [scarlet]" + minutes + "[accent] minutes " +
                     "[accent]([scarlet]0[accent]/[scarlet]" + requiredVotes + "[accent])" +
                     "\n[accent]Reason:[white] " + reason +
-                    "\nType [orange]/banid <y/n>[accent] to vote.");
+                    "\nType [orange]/vote <y/n>[accent] to vote.");
 
             String finalReason = reason;
             int finalMinutes = minutes;
             Time.runTask(60 * 45, () -> {
                 currentVoteBan = false;
                 if(votes >= requiredVotes){
-                    String ip = netServer.admins.getInfo(uuid).lastIP;
                     if(!db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
                         db.addEmptyRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid});
                     }
@@ -644,17 +645,18 @@ public class AABase extends Plugin{
             player.sendMessage("[purple]https://discord.gg/GEnYcSv");
         });
 
+        handler.<Player>register("website", "Prints website link", (args, player) -> {
+            player.sendMessage("[gold]https://recessive.net");
+        });
+
         handler.<Player>register("uuid", "Prints your uuid", (args, player) -> {
             player.sendMessage("[scarlet]" + player.uuid());
         });
 
 
-
         handler.<Player>register("donate", "Donate to the server", (args, player) -> {
-            player.sendMessage("[accent]Donate to gain [green]double xp[accent], the ability to " +
-                    "[green]start events[accent] and [green]donator commands[accent]!\n\nYou can donate at:\n" +
-                    "[gold]Donator [scarlet]1[accent]: https://shoppy.gg/product/i4PeGjP\n" +
-                    "[gold]Donator [scarlet]2[accent]: https://shoppy.gg/product/x1tMDJE\n\nThese links are also on the discord server");
+            player.sendMessage("[accent]Donate to gain [green]double xp[accent] " +
+                    "and [green]donator commands[accent]!\n\nYou can donate at: [gold]https://recessive.net");
         });
 
         handler.<Player>register("dtime", "Time remaining for your donator rank", (args, player) -> {
@@ -777,8 +779,9 @@ public class AABase extends Plugin{
                     + Instant.now().getEpochSecond() + ";");
 
             try {
-                ResultSet rs_temp = db.customQuery("SELECT COUNT(*) FROM player_data WHERE banPeriod>"
-                        + Instant.now().getEpochSecond() + ";");
+                ResultSet rs_temp = db.customQuery("SELECT COUNT(*) FROM bans WHERE banPeriod>"
+                        + Instant.now().getEpochSecond());
+                rs_temp.next();
                 int size = rs_temp.getInt(1);
                 rs_temp.close();
                 if(size == 0){
@@ -832,11 +835,12 @@ public class AABase extends Plugin{
                 return;
             }
 
-            ResultSet rs = db.customQuery("SELECT (ip, uuid) FROM bans WHERE banPeriod>"
+            ResultSet rs = db.customQuery("SELECT * FROM bans WHERE banPeriod>"
                     + Instant.now().getEpochSecond() + ";");
             try {
-                ResultSet rs_temp = db.customQuery("SELECT COUNT(*) FROM player_data WHERE banPeriod>0"
+                ResultSet rs_temp = db.customQuery("SELECT COUNT(*) FROM bans WHERE banPeriod>0"
                         + Instant.now().getEpochSecond() + ";");
+                rs_temp.next();
                 int size = rs_temp.getInt(1);
                 rs_temp.close();
                 if(size == 0){
@@ -921,12 +925,8 @@ public class AABase extends Plugin{
             Log.info("Ending game...");
             Time.runTask(60f * 10f, () -> {
 
-                for(Player ply : Groups.player) {
-                    Call.connect(player.con, "recessive.net", 6567);
-                }
-
                 // I shouldn't need this, all players should be gone since I connected them to hub
-                // netServer.kickAll(KickReason.serverRestarting);
+                netServer.kickAll(Packets.KickReason.serverRestarting);
                 Log.info("Game ended successfully.");
                 Time.runTask(5f, () -> System.exit(2));
             });

@@ -13,7 +13,7 @@ public class DBInterface {
 
     public void connect(String db, String username, String password){
         // SQLite connection string
-        String url = "jdbc:mysql://localhost/" + db;
+        String url = "jdbc:mysql://127.0.0.1:3306/" + db + "?useSSL=false";
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
             conn = DriverManager.getConnection(url, username, password);

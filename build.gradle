@@ -19,7 +19,7 @@ ext{
 dependencies{
     compileOnly "com.github.Anuken.Arc:arc-core:$mindustryVersion"
     compileOnly 'com.github.Recessive.aaMindustryServer:core:v0.1'
-    compile 'mysql:mysql-connector-java:6.0.6'
+    compile 'mysql:mysql-connector-java:8.0.12'
 }
 
 jar{
