@@ -150,7 +150,12 @@ public class AABase extends Plugin{
                 db.addEmptyRow("mindustry_data", "uuid", event.player.uuid());
             }
 
+            if(!uuidMapping.containsKey(event.player.uuid())){
+                uuidMapping.put(event.player.uuid(), new CustomPlayer(event.player));
+            }
+
             CustomPlayer cPly = uuidMapping.get(event.player.uuid());
+            cPly.player = event.player;
 
             idMapping.put(String.valueOf(event.player.id), event.player.uuid()); // For bans
 
@@ -184,16 +189,6 @@ public class AABase extends Plugin{
             if(adminRank != 0){
                 event.player.admin = true;
             }
-
-
-
-
-
-            if(!uuidMapping.containsKey(event.player.uuid())){
-                Log.info("Adding uuid " + event.player.uuid() + " to mapping");
-                uuidMapping.put(event.player.uuid(), new CustomPlayer(event.player));
-            }
-
 
 
             // Save name to database
@@ -956,6 +951,7 @@ public class AABase extends Plugin{
 
         if(!uuidMapping.containsKey(uuid)){
             Log.warn("uuid mapping does not contain uuid " + uuid + "! Not saving data!");
+            return;
         }
         Log.info("Saving " + uuid + " data...");
         Player player = uuidMapping.get(uuid).player;
