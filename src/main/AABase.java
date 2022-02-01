@@ -202,6 +202,7 @@ public class AABase extends Plugin{
             String prefix = dLevel != 0 ? (String) minEntries.get("namePrefix") : "";
             event.player.name = (event.player.admin ? "" : stringHandler.donatorMessagePrefix(dLevel)) + prefix + Strings.stripColors(event.player.name);
             event.player.color = Color.white;
+            cPly.namePrefix = prefix;
 
 
 
