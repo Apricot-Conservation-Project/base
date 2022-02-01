@@ -476,7 +476,8 @@ public class AABase extends Plugin{
             }
         });
 
-
+        final String votekickSyntax = "\n\n[accent]Syntax: [scarlet]/votekick [green][name/uuid/id] [blue][minutes] [orange][reason...]\n" +
+                "[accent]EXAMPLE: [scarlet]/votekick [green]example_player [blue]60 [orange]They have been griefing";
 
         Function<String[], Consumer<Player>> bid = args -> player -> {
 
@@ -489,6 +490,7 @@ public class AABase extends Plugin{
                     s += "\n[gold] - [accent]ID: [scarlet]" + ply.id + "[accent]: [white]" + ply.name;
                 }
                 s += "\n[accent]Check [scarlet]/recentdc [accent]as well";
+                s += votekickSyntax;
                 player.sendMessage(s);
                 return;
             }
@@ -510,7 +512,7 @@ public class AABase extends Plugin{
                 }else if(idMapping.containsKey(args[0])) {
                     uuid = idMapping.get(args[0]);
                 }else{
-                    player.sendMessage("[accent]Invalid ID: [scarlet]" + args[0]);
+                    player.sendMessage("[accent]Invalid ID: [scarlet]" + args[0] + votekickSyntax);
                     return;
                 }
             }else{
@@ -525,7 +527,7 @@ public class AABase extends Plugin{
                 try{
                     minutes = Math.max(0, Math.min(525600,Integer.parseInt(args[1])));
                 }catch (NumberFormatException e){
-                    player.sendMessage("[accent]Invalid time length!");
+                    player.sendMessage("[accent]Invalid time length! Must be a number!" + votekickSyntax);
                     return;
                 }
             }
@@ -534,32 +536,32 @@ public class AABase extends Plugin{
 
 
             if(minutes > 60 && player.donatorLevel == 0 && !player.admin){
-                player.sendMessage("[accent]Max ban time for your rank is [scarlet]60 [accent]minutes");
+                player.sendMessage("[accent]Max ban time for your rank is [scarlet]60 [accent]minutes" + votekickSyntax);
                 return;
             }
 
             if(minutes > 60 * 5 && !player.admin){
-                player.sendMessage("[accent]Max ban time for your rank is [scarlet]300 [accent]minutes");
+                player.sendMessage("[accent]Max ban time for your rank is [scarlet]300 [accent]minutes" + votekickSyntax);
                 return;
             }
 
             if(!db.hasRow("mindustry_data", "uuid", uuid)){
-                player.sendMessage("[accent]Invalid ID: [scarlet]" + args[0]);
+                player.sendMessage("[accent]Invalid ID: [scarlet]" + args[0] + votekickSyntax);
                 return;
             }
 
             if(uuidMapping.get(uuid).player.admin){
-                player.sendMessage("[accent]Can't ban admin");
+                player.sendMessage("[accent]Can't ban admin" + votekickSyntax);
                 return;
             }
 
             if(!player.admin && Instant.now().getEpochSecond() - uuidMapping.get(player.uuid()).lastvoteBan < 60 * 5){
-                player.sendMessage("[accent]You can only vote to ban someone every 5 minutes");
+                player.sendMessage("[accent]You can only vote to ban someone every 5 minutes" + votekickSyntax);
                 return;
             }
 
             if(currentVoteBan && !player.admin){
-                player.sendMessage("[accent]There is already a vote in progress");
+                player.sendMessage("[accent]There is already a vote in progress" + votekickSyntax);
                 return;
             }
 
@@ -570,7 +572,7 @@ public class AABase extends Plugin{
             if(db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
                 HashMap<String, Object> entries = db.loadRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid});
                 if((int) entries.get("banPeriod") > Instant.now().getEpochSecond()){
-                    player.sendMessage("[accent]Player is already banned!");
+                    player.sendMessage("[accent]Player is already banned!" + votekickSyntax);
                     return;
                 }
             }
