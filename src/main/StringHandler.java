@@ -6,7 +6,7 @@ public class StringHandler {
 
 
     public final String donatorMessagePrefix(int dLevel){
-        return dLevel > 0 ? "[yellow]Apric*t}[white]" : "";
+        return dLevel > 0 ? "[yellow]{Apric[purple]*[yellow]t}[white] " : "";
     }
 
 }

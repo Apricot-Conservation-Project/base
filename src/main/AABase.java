@@ -170,7 +170,7 @@ public class AABase extends Plugin{
 
                 dLevel = (int) datEntries.get("donatorLevel");
                 // Check for donation expiration
-                if(dLevel != 0 && donationExpired(event.player.uuid())){
+                if(dLevel != 0 && donationExpired(datEntries.get("userID"))){
                     Call.infoMessage(event.player.con, "\n[accent]You're donator rank has expired!");
                     db.saveRow("data", "uuid", event.player.uuid(), "donatorLevel", 0);
                     dLevel = 0;
@@ -385,7 +385,7 @@ public class AABase extends Plugin{
     @Override
     public void registerClientCommands(CommandHandler handler) {
 
-        handler.<Player>register("tps", "Connect to the Plague server", (args, player) -> {
+        handler.<Player>register("tps", "Check server TPS", (args, player) -> {
             int tps = Math.min(Core.graphics.getFramesPerSecond(), 60);
             String color;
             switch(tps / 15){
@@ -976,7 +976,7 @@ public class AABase extends Plugin{
 
     // All long term stuff here:
 
-    boolean donationExpired(String userID){
+    boolean donationExpired(Object userID){
         HashMap<String, Object> entries = db.loadRow("data", "userID", userID);
         return (int) entries.get("donateExpire") <= System.currentTimeMillis()/1000;
     }

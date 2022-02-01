@@ -39,12 +39,9 @@ public class DBInterface {
             }
 
             ResultSet rs = preparedStatement.executeQuery();
-
-            while(rs.next()){
-                rs.close();
-                return true;
-            }
-        } catch (SQLException ignored) {
+            return rs.last();
+        } catch (SQLException e) {
+            System.out.println("SQL ERROR: " + e);
         }
         return false;
     }
