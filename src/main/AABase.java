@@ -2,6 +2,7 @@ package main;
 
 import arc.*;
 import arc.graphics.Color;
+import arc.math.Mathf;
 import arc.struct.Seq;
 import arc.util.*;
 import mindustry.content.Blocks;
@@ -383,6 +384,19 @@ public class AABase extends Plugin{
     //register commands that player can invoke in-game
     @Override
     public void registerClientCommands(CommandHandler handler) {
+
+        handler.<Player>register("tps", "Connect to the Plague server", (args, player) -> {
+            int tps = Math.min(Core.graphics.getFramesPerSecond(), 60);
+            String color;
+            switch(tps / 15){
+                case 3: color = "[green]"; break;
+                case 2: color = "[yellow]"; break;
+                case 1: color = "[orange]"; break;
+                case 0: color = "[red]"; break;
+                default: color = "[green]";
+            }
+            player.sendMessage("[accent]Server tps: " + color + tps + "[accent]/[green]60");
+        });
 
 
         handler.<Player>register("hub", "Connect to the AA hub server", (args, player) -> {
