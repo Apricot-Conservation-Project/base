@@ -190,6 +190,7 @@ public class AABase extends Plugin{
 
 
             if(!uuidMapping.containsKey(event.player.uuid())){
+                Log.info("Adding uuid " + event.player.uuid() + " to mapping");
                 uuidMapping.put(event.player.uuid(), new CustomPlayer(event.player));
             }
 
@@ -675,7 +676,7 @@ public class AABase extends Plugin{
                         (hours != 1 ? "s" : "") + " and [scarlet]" + minutes + "[accent] minute" +
                         (minutes != 1 ? "s" : ""));
             }else{
-                player.sendMessage("[accent]You are no a donator!");
+                player.sendMessage("[accent]You are not a donator!");
             }
 
         });
@@ -952,6 +953,10 @@ public class AABase extends Plugin{
     }
 
     void savePlayerData(String uuid){
+
+        if(!uuidMapping.containsKey(uuid)){
+            Log.warn("uuid mapping does not contain uuid " + uuid + "! Not saving data!");
+        }
         Log.info("Saving " + uuid + " data...");
         Player player = uuidMapping.get(uuid).player;
 
