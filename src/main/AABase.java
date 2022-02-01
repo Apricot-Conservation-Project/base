@@ -487,7 +487,8 @@ public class AABase extends Plugin{
                     if(ply.admin){
                         continue;
                     }
-                    s += "\n[gold] - [accent]ID: [scarlet]" + ply.id + "[accent]: [white]" + ply.name;
+                    CustomPlayer cPly = uuidMapping.get(ply.uuid());
+                    s += "\n[gold] - [accent]ID: [scarlet]" + ply.id + "[accent]: [white]" + cPly.rawName;
                 }
                 s += "\n[accent]Check [scarlet]/recentdc [accent]as well";
                 s += votekickSyntax;
@@ -503,7 +504,10 @@ public class AABase extends Plugin{
                 int id = Strings.parseInt(args[0].substring(1));
                 found = Groups.player.find(p -> p.id() == id);
             }else{
-                found = Groups.player.find(p -> p.name.equalsIgnoreCase(args[0]));
+                found = Groups.player.find(p -> {
+                    CustomPlayer cPly = uuidMapping.get(p.uuid());
+                    return cPly.rawName.equalsIgnoreCase((args[0]));
+                });
             }
             
             if(found == null){
