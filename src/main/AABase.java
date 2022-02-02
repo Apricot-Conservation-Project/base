@@ -506,7 +506,7 @@ public class AABase extends Plugin{
             }else{
                 found = Groups.player.find(p -> {
                     CustomPlayer cPly = uuidMapping.get(p.uuid());
-                    return cPly.rawName.equalsIgnoreCase((args[0]));
+                    return cPly.rawName.equalsIgnoreCase((args[0])) || p.name.equalsIgnoreCase(args[0]);
                 });
             }
             
