@@ -529,7 +529,7 @@ public class AABase extends Plugin{
             int minutes = 60;
             if(args.length != 1){
                 try{
-                    minutes = Math.max(0, Math.min(525600,Integer.parseInt(args[1])));
+                    minutes = Math.max(0, Math.min(5256000,Integer.parseInt(args[1])));
                 }catch (NumberFormatException e){
                     player.sendMessage("[accent]Invalid time length! Must be a number!" + votekickSyntax);
                     return;
@@ -573,7 +573,7 @@ public class AABase extends Plugin{
 
             String ip = netServer.admins.getInfo(uuid).lastIP;
 
-            if(db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
+            if(!player.admin && db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
                 HashMap<String, Object> entries = db.loadRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid});
                 if((int) entries.get("banPeriod") > Instant.now().getEpochSecond()){
                     player.sendMessage("[accent]Player is already banned!" + votekickSyntax);
