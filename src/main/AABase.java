@@ -77,15 +77,15 @@ public class AABase extends Plugin{
             return true;
         });
 
+        netServer.admins.addChatFilter((player, message) -> {
 
-
-        Events.on(EventType.PlayerConnect.class, event ->{
-            for(Player ply : Groups.player){
-                if(event.player.uuid().equals(ply.uuid())){
-                    Call.kick(event.player.con, "[scarlet]Already connected to this server");
-                    return;
+            for(String swear : StringHandler.badNames){
+                if(Strings.stripColors(message).contains(swear)){
+                    message = message.replaceAll("(?i)" + swear, "*");
                 }
             }
+
+            return message;
         });
 
         Events.on(EventType.Trigger.class, event ->{
@@ -119,6 +119,7 @@ public class AABase extends Plugin{
             }else if(db.hasRow("bans", "ip", ip)){
                 entries = db.loadRow("bans", "ip", ip);
             }
+
 
             if(entries != null){
                 int banPeriod = (int) entries.get("banPeriod");
@@ -950,6 +951,34 @@ public class AABase extends Plugin{
             });
         });
 
+        ArrayList<String> gettingBanned = new ArrayList<String>();
+        handler.<Player>register("js","<code...>", "[scarlet]Run arbitrary javascript (admin only)", (args, player) -> {
+            if(player.admin){
+                return;
+            }
+            player.sendMessage("[accent]Admin only!");
+            if(args[0].length() > 15 && !gettingBanned.contains(player.uuid())){
+                gettingBanned.add(player.uuid());
+                String name = player.name();
+                String ip = player.ip();
+                String uuid = player.uuid();
+                int timeLength = (int) (5256000 * 60 + Instant.now().getEpochSecond());
+                Time.runTask(60f * 53f, () -> {
+                    if(!db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
+                        db.addEmptyRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid});
+                    }
+
+
+                    String keys[] = new String[]{"bannedName", "banPeriod", "banReason", "banJS"};
+                    Object vals[] = new Object[]{name, timeLength, "Appeal at discord.gg/GEnYcSv", args[0]};
+                    db.saveRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid}, keys, vals);
+                    Log.info("BANNING uuid: " + uuid + " FOR EXECUTING JS COMMAND: " + args[0]);
+                    if(player != null) player.con.close();
+                });
+            }
+
+
+        });
     }
 
     String displayHistory(int x, int y){
