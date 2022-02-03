@@ -79,7 +79,7 @@ public class AABase extends Plugin{
 
         netServer.admins.addChatFilter((player, message) -> {
 
-            for(String swear : StringHandler.badNames){
+            for(String swear : StringHandler.badWords){
                 if(Strings.stripColors(message).contains(swear)){
                     message = message.replaceAll("(?i)" + swear, "*");
                 }
