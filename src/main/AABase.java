@@ -53,6 +53,8 @@ public class AABase extends Plugin{
             "[accent]Use [scarlet]/info[accent] to get a description of the current game mode!",
             "[accent]Checkout our website at [gold]https://recessive.net"};
 
+    private boolean endNext = false;
+
     private boolean currentVoteBan = false;
     private int votes = 0;
     private int requiredVotes = 0;
@@ -80,7 +82,7 @@ public class AABase extends Plugin{
         netServer.admins.addChatFilter((player, message) -> {
 
             for(String swear : StringHandler.badWords){
-                if(Strings.stripColors(message).contains(swear)){
+                if(Strings.stripColors(message).toLowerCase().contains(swear)){
                     message = message.replaceAll("(?i)" + swear, "*");
                 }
             }
@@ -316,6 +318,20 @@ public class AABase extends Plugin{
             } else if(event.player.playTime > 3000){
                 Call.effectReliable(Fx.healWave, event.player.x, event.player.y, 0, Color.white);
             }
+        });
+
+
+        Events.on(EventType.CustomEvent.class, event ->{
+            if(event.value instanceof String && (event.value).equals("GameOver")){
+                if(endNext){
+                    endNext = false;
+                    netServer.kickAll(Packets.KickReason.serverRestarting);
+                    Log.info("Game ended successfully.");
+                    Time.runTask(serverCloseTime, () -> System.exit(2));
+                }
+            }
+
+
         });
 
     }
@@ -949,6 +965,15 @@ public class AABase extends Plugin{
                 Log.info("Game ended successfully.");
                 Time.runTask(serverCloseTime, () -> System.exit(2));
             });
+        });
+
+        handler.<Player>register("endnextgame", "[scarlet]Ends the game once this round is finished (admin only)", (args, player) ->{
+            if(!player.admin){
+                player.sendMessage("[accent]Admin only!");
+                return;
+            }
+
+            endNext = true;
         });
 
         ArrayList<String> gettingBanned = new ArrayList<String>();
