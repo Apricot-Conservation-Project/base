@@ -397,6 +397,13 @@ public class AABase extends Plugin{
                 Time.runTask(serverCloseTime, () -> System.exit(2));
             });
         });
+
+        handler.register("endnextgame", "Ends the game after this round is over", args ->{
+
+            Call.sendMessage("[scarlet]Server [accent]has called for, [scarlet]AFTER THIS GAME[accent], the server" +
+                    " to restart! You can reconnect once it has finished restarting");
+            endNext = true;
+        });
     }
 
     //register commands that player can invoke in-game
@@ -972,7 +979,8 @@ public class AABase extends Plugin{
                 player.sendMessage("[accent]Admin only!");
                 return;
             }
-
+            Call.sendMessage("[scarlet]" + player.name +  " [accent]has called for, [scarlet]AFTER THIS GAME[accent], the server" +
+                    " to restart! You can reconnect once it has finished restarting");
             endNext = true;
         });
 
