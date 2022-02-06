@@ -16,6 +16,8 @@ public class CustomPlayer{
     public String namePrefix;
     public int dTime;
 
+    public boolean hudEnabled = true;
+
 
     public CustomPlayer(Player player){
         this.player = player;

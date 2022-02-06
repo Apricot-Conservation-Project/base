@@ -94,7 +94,7 @@ public class AABase extends Plugin{
             if(interval.get(timerMinute, minuteTime)){
                 for(Player player : Groups.player){
                     player.playTime += 1;
-                    Call.infoPopup(player.con, "[accent]Play time: [scarlet]" + player.playTime + "[accent] mins.",
+                    if(uuidMapping.get(player.uuid()).hudEnabled) Call.infoPopup(player.con, "[accent]Play time: [scarlet]" + player.playTime + "[accent] mins.",
                             60, 10, 90, 0, 100, 0);
                 }
             }
@@ -209,7 +209,7 @@ public class AABase extends Plugin{
 
 
 
-            Call.infoPopup(event.player.con, "[accent]Play time: [scarlet]" + event.player.playTime + "[accent] mins.",
+            if(cPly.hudEnabled) Call.infoPopup(event.player.con, "[accent]Play time: [scarlet]" + event.player.playTime + "[accent] mins.",
                     55, 10, 90, 0, 100, 0);
 
             Events.fire(new EventType.PlayerJoinSecondary(event.player));
@@ -523,6 +523,7 @@ public class AABase extends Plugin{
             String uuid;
 
             boolean uuidArg = !args[0].matches("-?\\d+(\\.\\d+)?");
+            boolean usedVotekickMenu = false;
             Player found;
             if(args[0].length() > 1 && args[0].startsWith("#") && Strings.canParseInt(args[0].substring(1))){
                 int id = Strings.parseInt(args[0].substring(1));
@@ -532,6 +533,9 @@ public class AABase extends Plugin{
                     CustomPlayer cPly = uuidMapping.get(p.uuid());
                     return cPly.rawName.equalsIgnoreCase((args[0])) || p.name.equalsIgnoreCase(args[0]);
                 });
+                if(found != null){
+                    usedVotekickMenu = true;
+                }
             }
             
             if(found == null){
@@ -551,7 +555,7 @@ public class AABase extends Plugin{
 
 
             int minutes = 60;
-            if(args.length != 1){
+            if(args.length != 1 && !usedVotekickMenu){
                 try{
                     minutes = Math.max(0, Math.min(5256000,Integer.parseInt(args[1])));
                 }catch (NumberFormatException e){
@@ -606,7 +610,7 @@ public class AABase extends Plugin{
             }
 
             String reason = null;
-            if(args.length > 2){
+            if(args.length > 2 && !usedVotekickMenu){
                 String[] newArray = Arrays.copyOfRange(args, 2, args.length);
                 reason = String.join(" ", newArray);
             }
@@ -719,6 +723,16 @@ public class AABase extends Plugin{
                 player.sendMessage("[accent]You are not a donator!");
             }
 
+        });
+
+        handler.<Player>register("hud", "Toggle HUD (display/hide playtime and other info)", (args, player) -> {
+            Events.fire(new EventType.CustomEvent(new String[]{"hudToggle", player.uuid()}));
+
+            CustomPlayer cPly = uuidMapping.get(player.uuid());
+            player.sendMessage("[accent]Hud " + (cPly.hudEnabled ? "[scarlet]disabled. [accent]Hud will clear in 1 minute" : "[green]enabled. [accent]Playtime will show in one minute"));
+            cPly.hudEnabled = !cPly.hudEnabled;
+
+            db.saveRow("mindustry_data", "uuid", player.uuid(), "hudOn", false);
         });
 
         handler.<Player>register("color", "[color]", "[sky]Set the color of your name", (args, player) ->{
