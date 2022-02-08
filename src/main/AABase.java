@@ -59,6 +59,9 @@ public class AABase extends Plugin{
     private int votes = 0;
     private int requiredVotes = 0;
     private String uuidTrial;
+    private int timeLengthTrial;
+    private int minutesTrial;
+    private String reasonTrial;
     private List<String> voted;
 
     private boolean codeRed = false;
@@ -206,6 +209,7 @@ public class AABase extends Plugin{
             event.player.name = (event.player.admin ? "" : stringHandler.donatorMessagePrefix(dLevel)) + prefix + Strings.stripColors(event.player.name);
             event.player.color = Color.white;
             cPly.namePrefix = prefix;
+            cPly.hudEnabled = (boolean) minEntries.get("hudOn");
 
 
 
@@ -222,6 +226,24 @@ public class AABase extends Plugin{
             String s = "[scarlet]" + event.player.id + "[accent]: [white]" + event.player.name;
             recentlyDisconnect.add(s);
             Time.runTask(60 * 60 * 5, () -> {recentlyDisconnect.remove(s);});
+
+            if(event.player.uuid().equals(uuidTrial)){
+                Player p = event.player;
+                if(!db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{p.ip(), p.uuid()})){
+                    db.addEmptyRow("bans", new String[]{"ip", "uuid"}, new Object[]{p.ip(), p.uuid()});
+                }
+
+                String name = p.name;
+
+                String keys[] = new String[]{"bannedName", "banPeriod", "banReason"};
+                Object vals[] = new Object[]{name, timeLengthTrial, reasonTrial};
+                db.saveRow("bans", new String[]{"ip", "uuid"}, new Object[]{p.ip(), p.uuid()}, keys, vals);
+
+                Call.sendMessage("[scarlet]PLAYER LEFT MID TRIAL. [white]" + name +
+                        "[accent] will be banned for [scarlet]" + minutesTrial + "[accent] minutes");
+
+                currentVoteBan = false;
+            }
         });
 
 
@@ -323,6 +345,7 @@ public class AABase extends Plugin{
 
         Events.on(EventType.CustomEvent.class, event ->{
             if(event.value instanceof String && (event.value).equals("GameOver")){
+                historyHandler.clear();
                 if(endNext){
                     endNext = false;
                     netServer.kickAll(Packets.KickReason.serverRestarting);
@@ -481,6 +504,12 @@ public class AABase extends Plugin{
         });
 
         handler.<Player>register("vote", "<y/n>", "Vote on a current ban vote", (args, player) -> {
+            if(!currentVoteBan){
+                player.sendMessage("[accent]There is no active vote!\n\n" +
+                        "[accent]Type [orange]/vote <y/n>[accent] to vote.");
+                return;
+            }
+
             if((args[0].equals("y") || args[0].equals("n")) && voted.contains(player.uuid())){
                 player.sendMessage("[accent]You have already voted!");
                 return;
@@ -524,17 +553,18 @@ public class AABase extends Plugin{
 
             boolean uuidArg = !args[0].matches("-?\\d+(\\.\\d+)?");
             boolean usedVotekickMenu = false;
-            Player found;
+            Player found = null;
             if(args[0].length() > 1 && args[0].startsWith("#") && Strings.canParseInt(args[0].substring(1))){
                 int id = Strings.parseInt(args[0].substring(1));
                 found = Groups.player.find(p -> p.id() == id);
             }else{
-                found = Groups.player.find(p -> {
-                    CustomPlayer cPly = uuidMapping.get(p.uuid());
-                    return cPly.rawName.equalsIgnoreCase((args[0])) || p.name.equalsIgnoreCase(args[0]);
-                });
-                if(found != null){
-                    usedVotekickMenu = true;
+                for(Player p : Groups.player){
+                    if(p.name.equalsIgnoreCase(args[0])){
+                        usedVotekickMenu = true;
+                        found = p;
+                    } else if(uuidMapping.get(p.uuid()).rawName.equalsIgnoreCase((args[0]))){
+                        found = p;
+                    }
                 }
             }
             
@@ -637,6 +667,9 @@ public class AABase extends Plugin{
                 return;
             }else{
                 uuidTrial = uuid;
+                timeLengthTrial = timeLength;
+                minutesTrial = minutes;
+                reasonTrial = reason;
                 currentVoteBan = true;
                 votes = 0;
                 voted = new ArrayList<String>(Arrays.asList(uuid));
@@ -652,6 +685,9 @@ public class AABase extends Plugin{
             String finalReason = reason;
             int finalMinutes = minutes;
             Time.runTask(60 * 45, () -> {
+                if(!currentVoteBan){
+                    return;
+                }
                 currentVoteBan = false;
                 if(votes >= requiredVotes){
                     if(!db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
@@ -662,7 +698,7 @@ public class AABase extends Plugin{
 
                     String keys[] = new String[]{"bannedName", "banPeriod", "banReason"};
                     Object vals[] = new Object[]{name, timeLength, finalReason};
-                    db.saveRow("bans", "ip", ip, keys, vals);
+                    db.saveRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid}, keys, vals);
 
                     Call.sendMessage("[accent]Vote passed. [white]" + name +
                             "[accent] will be banned for [scarlet]" + finalMinutes + "[accent] minutes");
@@ -732,7 +768,7 @@ public class AABase extends Plugin{
             player.sendMessage("[accent]Hud " + (cPly.hudEnabled ? "[scarlet]disabled. [accent]Hud will clear in 1 minute" : "[green]enabled. [accent]Playtime will show in one minute"));
             cPly.hudEnabled = !cPly.hudEnabled;
 
-            db.saveRow("mindustry_data", "uuid", player.uuid(), "hudOn", false);
+            db.saveRow("mindustry_data", "uuid", player.uuid(), "hudOn", cPly.hudEnabled);
         });
 
         handler.<Player>register("color", "[color]", "[sky]Set the color of your name", (args, player) ->{

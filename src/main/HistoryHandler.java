@@ -30,4 +30,8 @@ public class HistoryHandler {
         return history.get(key);
     }
 
+    public void clear(){
+        history.clear();
+    }
+
 }
