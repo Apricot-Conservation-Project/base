@@ -14,6 +14,9 @@ import mindustry.net.Packets;
 import mindustry.world.Tile;
 import mindustry.world.blocks.power.PowerNode;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -28,9 +31,13 @@ public class AABase extends Plugin{
 
     private final Random rand = new Random(System.currentTimeMillis());
 
+    private final float startTime = System.currentTimeMillis();
+    private float realTime;
+    private int seconds;
+
     private final static float serverCloseTime = 60f * 2f;
-    private final static int minuteTime = 60 * 60, announcementTime = 60 * 60 * 5;
-    private final static int timerMinute = 0, timerAnnouncement = 1;
+    private final static int tenSecondTime = 60 * 10, minuteTime = 60 * 60, announcementTime = 60 * 60 * 5;
+    private final static int timerTen = 0, timerMinute = 1, timerAnnouncement = 2;
     private final Interval interval = new Interval(10);
 
     private final DBInterface db = new DBInterface();
@@ -48,7 +55,7 @@ public class AABase extends Plugin{
     private int announcementIndex = 0;
     private String[] announcements = {"[accent]Join the discord with [purple]/discord[accent]!",
             "[accent]Donate with [scarlet]/donate [accent]to help keep the server alive! Additionally, " +
-                    "receive double XP, custom name colors, " +
+                    "receive [gold]triple XP[accent], custom name colors, " +
                     "death and spawn particles and many more perks!",
             "[accent]Use [scarlet]/info[accent] to get a description of the current game mode!",
             "[accent]Checkout our website at [gold]https://recessive.net"};
@@ -66,11 +73,24 @@ public class AABase extends Plugin{
 
     private boolean codeRed = false;
 
+    String pingFileName = "pingme.txt";
+
     //register event handlers and create variables in the constructor
     public void init(){
         db.connect("users", "recessive", "8N~hT4=a\"M89Gk6@");
 
         state.rules.fire = false;
+
+        File pingFile = new File(pingFileName);
+        try {
+            if (pingFile.createNewFile()) {
+                System.out.println("File created: " + pingFile.getName());
+            } else {
+                System.out.println("File already exists.");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         netServer.admins.addActionFilter((action) -> {
             if(codeRed) return false;
@@ -94,6 +114,17 @@ public class AABase extends Plugin{
         });
 
         Events.on(EventType.Trigger.class, event ->{
+            if(interval.get(timerTen, tenSecondTime)){
+                seconds = (int) (System.currentTimeMillis() / 1000);
+                try {
+                    FileWriter pingFileWrite = new FileWriter(pingFileName);
+                    pingFileWrite.write("" + seconds);
+                    pingFileWrite.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
             if(interval.get(timerMinute, minuteTime)){
                 for(Player player : Groups.player){
                     player.playTime += 1;
@@ -142,11 +173,14 @@ public class AABase extends Plugin{
             // Check if uuid already exists
             AtomicInteger count = new AtomicInteger();
             Groups.player.each(player -> {
-                if(player.uuid().equals(event.player.uuid())) count.getAndIncrement();
+                if(
+                        player.uuid().equals(event.player.uuid()) ||
+                        Strings.stripColors(player.name).equalsIgnoreCase(Strings.stripColors(event.player.name()))
+                ) count.getAndIncrement();
             });
 
             if(count.get() > 1){
-                event.player.con.kick("Already in the server");
+                event.player.con.kick("[accent]Player with your name is already in this server!", 0);
                 return;
             }
 
@@ -171,6 +205,7 @@ public class AABase extends Plugin{
 
             HashMap<String, Object> minEntries = db.loadRow("mindustry_data", "uuid", event.player.uuid());
             // If the uuid actually has an associated account
+            String prefix = "";
             if(minEntries.get("userID") != null){
                 HashMap<String, Object> datEntries = db.loadRow("data", "userID", minEntries.get("userID"));
 
@@ -182,9 +217,12 @@ public class AABase extends Plugin{
                     dLevel = 0;
                 }
 
+
+
                 if(dLevel > 0){
+                    prefix = (String) minEntries.get("namePrefix");
                     cPly.dTime = (int) datEntries.get("donateExpire");
-                    Call.sendMessage(event.player.name + "[accent] has joined the game");
+                    Call.sendMessage(prefix + Strings.stripColors(event.player.name) + "[accent] has joined the game");
                 }
 
 
@@ -205,7 +243,6 @@ public class AABase extends Plugin{
             event.player.playTime = (int) minEntries.get("playTime");
             event.player.donatorLevel = dLevel;
 
-            String prefix = dLevel != 0 ? (String) minEntries.get("namePrefix") : "";
             event.player.name = (event.player.admin ? "" : stringHandler.donatorMessagePrefix(dLevel)) + prefix + Strings.stripColors(event.player.name);
             event.player.color = Color.white;
             cPly.namePrefix = prefix;
@@ -227,7 +264,7 @@ public class AABase extends Plugin{
             recentlyDisconnect.add(s);
             Time.runTask(60 * 60 * 5, () -> {recentlyDisconnect.remove(s);});
 
-            if(event.player.uuid().equals(uuidTrial)){
+            if(event.player.uuid().equals(uuidTrial) && currentVoteBan){
                 Player p = event.player;
                 if(!db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{p.ip(), p.uuid()})){
                     db.addEmptyRow("bans", new String[]{"ip", "uuid"}, new Object[]{p.ip(), p.uuid()});
@@ -737,7 +774,7 @@ public class AABase extends Plugin{
 
 
         handler.<Player>register("donate", "Donate to the server", (args, player) -> {
-            player.sendMessage("[accent]Donate to gain [green]double xp[accent] " +
+            player.sendMessage("[accent]Donate to gain [green]triple xp[accent] " +
                     "and [green]donator commands[accent]!\n\nYou can donate at: [gold]https://recessive.net");
         });
 
@@ -991,16 +1028,22 @@ public class AABase extends Plugin{
             uuidMapping.get(player.uuid()).destroyMode = true;
         });
 
-        handler.<Player>register("cr", "[scarlet]Code red, blocks all actions for 10 seconds", (args, player) -> {
+        handler.<Player>register("cr", "[scarlet]Code red, blocks all actions for 30 seconds", (args, player) -> {
             if(!player.admin){
                 player.sendMessage("[accent]Admin only!");
                 return;
             }
+            if(codeRed){
+                Call.sendMessage("[scarlet]Code red over");
+                codeRed = false;
+            }
             codeRed = true;
             Call.sendMessage(player.name + " [scarlet]has called a code red! All actions are blocked for the next 30 seconds");
             Time.runTask(60 * 30, () -> {
-                codeRed = false;
-                Call.sendMessage("[accent]Code red over");
+                if(codeRed){
+                    codeRed = false;
+                    Call.sendMessage("[scarlet]Code red over");
+                }
             });
 
         });
@@ -1036,6 +1079,7 @@ public class AABase extends Plugin{
 
         ArrayList<String> gettingBanned = new ArrayList<String>();
         handler.<Player>register("js","<code...>", "[scarlet]Run arbitrary javascript (admin only)", (args, player) -> {
+            if(true) return;
             if(player.admin){
                 return;
             }
