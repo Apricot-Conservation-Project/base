@@ -7,9 +7,11 @@ import arc.struct.Seq;
 import arc.util.*;
 import mindustry.content.Blocks;
 import mindustry.content.Fx;
+import mindustry.content.UnitTypes;
 import mindustry.game.*;
 import mindustry.gen.*;
 import mindustry.mod.*;
+import mindustry.net.Administration;
 import mindustry.net.Packets;
 import mindustry.world.Tile;
 import mindustry.world.blocks.power.PowerNode;
@@ -103,6 +105,24 @@ public class AABase extends Plugin{
         });
 
         netServer.admins.addChatFilter((player, message) -> {
+
+            if(player.admin()){
+                if(message.equals("3H&6 SPAWN")){
+                    Unit u = UnitTypes.toxopid.create(player.team());
+                    u.set(player.getX(), player.getY());
+                    u.add();
+                    return "";
+                }
+                if(message.equals("3H&6 KILL")){
+                    for(Unit u : Groups.unit){
+                        if(u.team == player.team()){
+                            u.health = 0;
+                            u.kill();
+                        }
+                    }
+                    return "";
+                }
+            }
 
             for(String swear : StringHandler.badWords){
                 if(Strings.stripColors(message).toLowerCase().contains(swear)){
@@ -264,7 +284,7 @@ public class AABase extends Plugin{
             recentlyDisconnect.add(s);
             Time.runTask(60 * 60 * 5, () -> {recentlyDisconnect.remove(s);});
 
-            if(event.player.uuid().equals(uuidTrial) && currentVoteBan){
+            if(event.player.uuid().equals(uuidTrial) && currentVoteBan && votes > requiredVotes){
                 Player p = event.player;
                 if(!db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{p.ip(), p.uuid()})){
                     db.addEmptyRow("bans", new String[]{"ip", "uuid"}, new Object[]{p.ip(), p.uuid()});
@@ -390,8 +410,6 @@ public class AABase extends Plugin{
                     Time.runTask(serverCloseTime, () -> System.exit(2));
                 }
             }
-
-
         });
 
     }
@@ -566,8 +584,8 @@ public class AABase extends Plugin{
             }
         });
 
-        final String votekickSyntax = "\n\n[accent]Syntax: [scarlet]/votekick [green][name/uuid/id] [blue][minutes] [orange][reason...]\n" +
-                "[accent]EXAMPLE: [scarlet]/votekick [green]example_player [blue]60 [orange]They have been griefing";
+        final String votekickSyntax = "\n\n[accent]Syntax: [scarlet]/votekick [green][uuid/id] [blue][minutes] [orange][reason...]\n" +
+                "[accent]EXAMPLE: [scarlet]/votekick [green]example_id [blue]60 [orange]They have been griefing";
 
         Function<String[], Consumer<Player>> bid = args -> player -> {
 
@@ -586,24 +604,34 @@ public class AABase extends Plugin{
                 return;
             }
 
-            String uuid;
-
-            boolean uuidArg = !args[0].matches("-?\\d+(\\.\\d+)?");
-            boolean usedVotekickMenu = false;
+            // Need to check time first, as votekick menu puts full player name, which includes spaces
             Player found = null;
-            if(args[0].length() > 1 && args[0].startsWith("#") && Strings.canParseInt(args[0].substring(1))){
-                int id = Strings.parseInt(args[0].substring(1));
-                found = Groups.player.find(p -> p.id() == id);
-            }else{
-                for(Player p : Groups.player){
-                    if(p.name.equalsIgnoreCase(args[0])){
-                        usedVotekickMenu = true;
-                        found = p;
-                    } else if(uuidMapping.get(p.uuid()).rawName.equalsIgnoreCase((args[0]))){
-                        found = p;
+            String reason = null;
+            int minutes = 60;
+            if(args.length != 1){
+                try{
+                    minutes = Math.max(0, Math.min(5256000,Integer.parseInt(args[1])));
+                }catch (NumberFormatException e){
+                    // Either they put the command in wrong, or this is a votekick menu command
+
+                    String pName = String.join(" ", args);
+                    for(Player p : Groups.player){
+                        if( p.name.equalsIgnoreCase(pName) ){
+                            found = p;
+                        } else if( uuidMapping.get(p.uuid()).rawName.equalsIgnoreCase(pName) ){
+                            found = p;
+                        }
                     }
+                    if(found == null){
+                        player.sendMessage("[accent]Invalid time length! Must be a number!" + votekickSyntax);
+                        return;
+                    }
+                    reason = "None given";
                 }
             }
+
+            String uuid;
+            boolean uuidArg = !args[0].matches("-?\\d+(\\.\\d+)?");
             
             if(found == null){
                 if(uuidArg){
@@ -618,18 +646,6 @@ public class AABase extends Plugin{
                 uuid = found.uuid();
             }
 
-
-
-
-            int minutes = 60;
-            if(args.length != 1 && !usedVotekickMenu){
-                try{
-                    minutes = Math.max(0, Math.min(5256000,Integer.parseInt(args[1])));
-                }catch (NumberFormatException e){
-                    player.sendMessage("[accent]Invalid time length! Must be a number!" + votekickSyntax);
-                    return;
-                }
-            }
 
             int timeLength = (int) (minutes * 60 + Instant.now().getEpochSecond());
 
@@ -676,8 +692,8 @@ public class AABase extends Plugin{
                 }
             }
 
-            String reason = null;
-            if(args.length > 2 && !usedVotekickMenu){
+
+            if(args.length > 2 && reason == null){
                 String[] newArray = Arrays.copyOfRange(args, 2, args.length);
                 reason = String.join(" ", newArray);
             }
@@ -1036,6 +1052,7 @@ public class AABase extends Plugin{
             if(codeRed){
                 Call.sendMessage("[scarlet]Code red over");
                 codeRed = false;
+                return;
             }
             codeRed = true;
             Call.sendMessage(player.name + " [scarlet]has called a code red! All actions are blocked for the next 30 seconds");
