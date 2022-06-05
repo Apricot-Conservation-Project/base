@@ -64,14 +64,7 @@ public class AABase extends Plugin{
 
     private boolean endNext = false;
 
-    private boolean currentVoteBan = false;
-    private int votes = 0;
-    private int requiredVotes = 0;
-    private String uuidTrial;
-    private int timeLengthTrial;
-    private int minutesTrial;
-    private String reasonTrial;
-    private List<String> voted;
+    private VoteBan voteBan;
 
     private boolean codeRed = false;
 
@@ -80,6 +73,8 @@ public class AABase extends Plugin{
     //register event handlers and create variables in the constructor
     public void init(){
         db.connect("users", "recessive", "8N~hT4=a\"M89Gk6@");
+
+        voteBan = new VoteBan(uuidMapping, db);
 
         state.rules.fire = false;
 
@@ -97,17 +92,13 @@ public class AABase extends Plugin{
         netServer.admins.addActionFilter((action) -> {
             if(codeRed) return false;
 
-            // Prevent votekick users from doing anything
-            if(currentVoteBan && action.player != null && action.player.uuid().equals(uuidTrial)){
-                return false;
-            }
             return true;
         });
 
         netServer.admins.addChatFilter((player, message) -> {
 
             if(player.admin()){
-                if(message.equals("3H&6 SPAWN")){
+                if(message.equals("a")){
                     Unit u = UnitTypes.toxopid.create(player.team());
                     u.set(player.getX(), player.getY());
                     u.add();
@@ -143,6 +134,9 @@ public class AABase extends Plugin{
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+
+                // Add player count to database
+                db.addEmptyRow("server_stats", new String[]{"time", "playercount"}, new Object[]{seconds, Groups.player.size()});
             }
 
             if(interval.get(timerMinute, minuteTime)){
@@ -166,6 +160,9 @@ public class AABase extends Plugin{
                     event.player.name = event.player.name.replaceAll("(?i)" + swear, "*");
                 }
             }
+
+            // Replace all spaces in a players name with fancy spaces so the votekick tab menu works
+            event.player.name = event.player.name.replaceAll("\\s", "\u00A0");
 
             String ip = netServer.admins.getInfo(event.player.uuid()).lastIP;
             String uuid = event.player.uuid();
@@ -283,24 +280,6 @@ public class AABase extends Plugin{
             String s = "[scarlet]" + event.player.id + "[accent]: [white]" + event.player.name;
             recentlyDisconnect.add(s);
             Time.runTask(60 * 60 * 5, () -> {recentlyDisconnect.remove(s);});
-
-            if(event.player.uuid().equals(uuidTrial) && currentVoteBan && votes > requiredVotes){
-                Player p = event.player;
-                if(!db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{p.ip(), p.uuid()})){
-                    db.addEmptyRow("bans", new String[]{"ip", "uuid"}, new Object[]{p.ip(), p.uuid()});
-                }
-
-                String name = p.name;
-
-                String keys[] = new String[]{"bannedName", "banPeriod", "banReason"};
-                Object vals[] = new Object[]{name, timeLengthTrial, reasonTrial};
-                db.saveRow("bans", new String[]{"ip", "uuid"}, new Object[]{p.ip(), p.uuid()}, keys, vals);
-
-                Call.sendMessage("[scarlet]PLAYER LEFT MID TRIAL. [white]" + name +
-                        "[accent] will be banned for [scarlet]" + minutesTrial + "[accent] minutes");
-
-                currentVoteBan = false;
-            }
         });
 
 
@@ -559,213 +538,76 @@ public class AABase extends Plugin{
         });
 
         handler.<Player>register("vote", "<y/n>", "Vote on a current ban vote", (args, player) -> {
-            if(!currentVoteBan){
-                player.sendMessage("[accent]There is no active vote!\n\n" +
-                        "[accent]Type [orange]/vote <y/n>[accent] to vote.");
-                return;
-            }
-
-            if((args[0].equals("y") || args[0].equals("n")) && voted.contains(player.uuid())){
-                player.sendMessage("[accent]You have already voted!");
-                return;
-            }
-            if(args[0].equals("y")){
-                voted.add(player.uuid());
-                votes += 1;
-                Call.sendMessage(player.name + "[accent] voted to ban [white]" + uuidMapping.get(uuidTrial).player.name +
-                        " [accent]([scarlet]" + votes + "[accent]/[scarlet]" + requiredVotes + "[accent])");
-            }else if (args[0].equals("n")){
-                voted.add(player.uuid());
-                votes -= 1;
-                Call.sendMessage(player.name + "[accent] voted [scarlet]not[accent] to ban [white]" + uuidMapping.get(uuidTrial).player.name +
-                        " [accent]([scarlet]" + votes + "[accent]/[scarlet]" + requiredVotes + "[accent])");
-            }else{
-                player.sendMessage("[accent]Type [orange]/vote <y/n>[accent] to vote.");
-            }
+            player.sendMessage(voteBan.vote(player.uuid(), args[0].equals("y")));
         });
 
-        final String votekickSyntax = "\n\n[accent]Syntax: [scarlet]/votekick [green][uuid/id] [blue][minutes] [orange][reason...]\n" +
-                "[accent]EXAMPLE: [scarlet]/votekick [green]example_id [blue]60 [orange]They have been griefing";
-
-        Function<String[], Consumer<Player>> bid = args -> player -> {
+        handler.<Player>register("votekick", "[id/name] [minutes] [reason...]", "Start a vote ban for a player id, or immediately ban if admin", (args, player) -> {
 
             if(args.length == 0){
-                String s = "[accent]You can vote on the following players: ";
-                for(Player ply : Groups.player){
-                    if(ply.admin){
-                        continue;
-                    }
-                    CustomPlayer cPly = uuidMapping.get(ply.uuid());
-                    s += "\n[gold] - [accent]ID: [scarlet]" + ply.id + "[accent]: [white]" + cPly.rawName;
-                }
-                s += "\n[accent]Check [scarlet]/recentdc [accent]as well";
-                s += votekickSyntax;
-                player.sendMessage(s);
+                player.sendMessage(voteBan.getSyntax());
                 return;
             }
 
-            // Need to check time first, as votekick menu puts full player name, which includes spaces
             Player found = null;
-            String reason = null;
+            String reason = "None given";
             int minutes = 60;
-            if(args.length != 1){
+
+            // Check if any player has this name or id
+
+            // Check name first:
+            for(String uuid : uuidMapping.keySet()){
+                CustomPlayer cPly = uuidMapping.get(uuid);
+                Log.info(cPly.rawName + ", " + args);
+                if(Strings.stripColors(cPly.rawName).equalsIgnoreCase(Strings.stripColors(args[0]))
+                || Strings.stripColors(cPly.player.name).equalsIgnoreCase(Strings.stripColors(args[0]))){
+                    found = cPly.player;
+                    break;
+                }
+            }
+
+            // If name still not found, try for id
+            if(found == null && idMapping.containsKey(args[0])){
+                found = uuidMapping.get(idMapping.get(args[0])).player;
+            }
+
+            // If still not found, try replacing normal spaces with fancy ones
+            /*if(found == null){
+                String joinedArgs = String.join("\u00A0", args);
+                for(String uuid : uuidMapping.keySet()){
+                    Player ply = uuidMapping.get(uuid).player;
+                    if(Strings.stripColors(ply.name).equalsIgnoreCase(Strings.stripColors(joinedArgs))){
+                        found = ply;
+                        break;
+                    }
+                }
+            }*/
+
+            // If STILL not found, return
+
+            if(found == null){
+                player.sendMessage("[accent]No player with name or id: [white]" + args[0] + "[accent] found!");
+                return;
+            }
+
+            // Now try and get time
+            if(args.length > 1){
                 try{
                     minutes = Math.max(0, Math.min(5256000,Integer.parseInt(args[1])));
-                }catch (NumberFormatException e){
-                    // Either they put the command in wrong, or this is a votekick menu command
-
-                    String pName = String.join(" ", args);
-                    for(Player p : Groups.player){
-                        if( p.name.equalsIgnoreCase(pName) ){
-                            found = p;
-                        } else if( uuidMapping.get(p.uuid()).rawName.equalsIgnoreCase(pName) ){
-                            found = p;
-                        }
-                    }
-                    if(found == null){
-                        player.sendMessage("[accent]Invalid time length! Must be a number!" + votekickSyntax);
-                        return;
-                    }
-                    reason = "None given";
-                }
+                }catch (NumberFormatException ignore) {}
             }
 
-            String uuid;
-            boolean uuidArg = !args[0].matches("-?\\d+(\\.\\d+)?");
-            
-            if(found == null){
-                if(uuidArg){
-                    uuid = args[0];
-                }else if(idMapping.containsKey(args[0])) {
-                    uuid = idMapping.get(args[0]);
-                }else{
-                    player.sendMessage("[accent]Invalid ID: [scarlet]" + args[0] + votekickSyntax);
-                    return;
-                }
-            }else{
-                uuid = found.uuid();
-            }
+            // Try and get reason
 
-
-            int timeLength = (int) (minutes * 60 + Instant.now().getEpochSecond());
-
-
-            if(minutes > 60 && player.donatorLevel == 0 && !player.admin){
-                player.sendMessage("[accent]Max ban time for your rank is [scarlet]60 [accent]minutes" + votekickSyntax);
-                return;
-            }
-
-            if(minutes > 60 * 5 && !player.admin){
-                player.sendMessage("[accent]Max ban time for your rank is [scarlet]300 [accent]minutes" + votekickSyntax);
-                return;
-            }
-
-            if(!db.hasRow("mindustry_data", "uuid", uuid)){
-                player.sendMessage("[accent]Invalid ID: [scarlet]" + args[0] + votekickSyntax);
-                return;
-            }
-
-            if(uuidMapping.get(uuid).player.admin){
-                player.sendMessage("[accent]Can't ban admin" + votekickSyntax);
-                return;
-            }
-
-            if(!player.admin && Instant.now().getEpochSecond() - uuidMapping.get(player.uuid()).lastvoteBan < 60 * 5){
-                player.sendMessage("[accent]You can only vote to ban someone every 5 minutes" + votekickSyntax);
-                return;
-            }
-
-            if(currentVoteBan && !player.admin){
-                player.sendMessage("[accent]There is already a vote in progress" + votekickSyntax);
-                return;
-            }
-
-            uuidMapping.get(player.uuid()).lastvoteBan = (int) Instant.now().getEpochSecond();
-
-            String ip = netServer.admins.getInfo(uuid).lastIP;
-
-            if(!player.admin && db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
-                HashMap<String, Object> entries = db.loadRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid});
-                if((int) entries.get("banPeriod") > Instant.now().getEpochSecond()){
-                    player.sendMessage("[accent]Player is already banned!" + votekickSyntax);
-                    return;
-                }
-            }
-
-
-            if(args.length > 2 && reason == null){
+            if(args.length > 2){
                 String[] newArray = Arrays.copyOfRange(args, 2, args.length);
                 reason = String.join(" ", newArray);
             }
 
-            if(player.admin){
+            player.sendMessage(voteBan.startVoteBan(found.uuid(), minutes, reason, player.uuid()));
 
 
-                if(!db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
-                    db.addEmptyRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid});
-                }
-                String name = uuidMapping.get(uuid).player.name;
-
-                String keys[] = new String[]{"bannedName", "banPeriod", "banReason"};
-                Object vals[] = new Object[]{name, timeLength, reason};
-                db.saveRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid}, keys, vals);
 
 
-                Call.sendMessage(player.name + "[accent] has banned [white]" + name +
-                        " for [scarlet]" + minutes + "[accent] minutes\nReason: [white]" + reason);
-
-                uuidMapping.get(uuid).player.con.kick("[accent]You are banned for another [scarlet]" +
-                        minutes + "[accent] minutes.\nReason: [white]" + reason);
-
-                return;
-            }else{
-                uuidTrial = uuid;
-                timeLengthTrial = timeLength;
-                minutesTrial = minutes;
-                reasonTrial = reason;
-                currentVoteBan = true;
-                votes = 0;
-                voted = new ArrayList<String>(Arrays.asList(uuid));
-                requiredVotes = Math.max(Groups.player.size() / 5, 2);
-            }
-
-            Call.sendMessage(player.name + "[accent] Has started a vote ban against [white]" +
-                    uuidMapping.get(uuid).player.name + "[accent] to ban for [scarlet]" + minutes + "[accent] minutes " +
-                    "[accent]([scarlet]0[accent]/[scarlet]" + requiredVotes + "[accent])" +
-                    "\n[accent]Reason:[white] " + reason +
-                    "\nType [orange]/vote <y/n>[accent] to vote.");
-
-            String finalReason = reason;
-            int finalMinutes = minutes;
-            Time.runTask(60 * 45, () -> {
-                if(!currentVoteBan){
-                    return;
-                }
-                currentVoteBan = false;
-                if(votes >= requiredVotes){
-                    if(!db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
-                        db.addEmptyRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid});
-                    }
-
-                    String name = uuidMapping.get(uuid).player.name;
-
-                    String keys[] = new String[]{"bannedName", "banPeriod", "banReason"};
-                    Object vals[] = new Object[]{name, timeLength, finalReason};
-                    db.saveRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid}, keys, vals);
-
-                    Call.sendMessage("[accent]Vote passed. [white]" + name +
-                            "[accent] will be banned for [scarlet]" + finalMinutes + "[accent] minutes");
-
-                    uuidMapping.get(uuid).player.con.kick("[accent]You are banned for another [scarlet]" +
-                            finalMinutes + "[accent] minutes.\nReason: [white]" + finalReason);
-                }else{
-                    Call.sendMessage("[accent]Vote failed. Not enough votes.");
-                }
-            });
-        };
-
-        handler.<Player>register("votekick", "[uuid/id] [minutes] [reason...]", "Start a vote ban for a player id, or immediately ban if admin", (args, player) -> {
-            bid.apply(args).accept(player);
         });
 
         handler.<Player>register("historyhere", "Display history for the tile you're positioned over", (args, player) -> {
