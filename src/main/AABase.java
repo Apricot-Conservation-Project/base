@@ -38,8 +38,8 @@ public class AABase extends Plugin{
     private int seconds;
 
     private final static float serverCloseTime = 60f * 2f;
-    private final static int tenSecondTime = 60 * 10, minuteTime = 60 * 60, announcementTime = 60 * 60 * 5;
-    private final static int timerTen = 0, timerMinute = 1, timerAnnouncement = 2;
+    private final static int tenSecondTime = 60 * 10, minuteTime = 60 * 60, announcementTime = 60 * 60 * 5, secondTime = 60;
+    private final static int timerTen = 0, timerMinute = 1, timerAnnouncement = 2, timerSecond = 3;
     private final Interval interval = new Interval(10);
 
     private final DBInterface db = new DBInterface();
@@ -61,6 +61,10 @@ public class AABase extends Plugin{
                     "death and spawn particles and many more perks!",
             "[accent]Use [scarlet]/info[accent] to get a description of the current game mode!",
             "[accent]Checkout our website at [gold]https://recessive.net"};
+
+    private List<String> rainbowUuids = new ArrayList<String>();
+    private String[] rainbow = {"[red]", "[orange]", "[yellow]", "[green]", "[blue]", "[violet]"};
+    private int rainbowInd = 0;
 
     private boolean endNext = false;
 
@@ -148,8 +152,29 @@ public class AABase extends Plugin{
             }
 
             if(interval.get(timerAnnouncement, announcementTime)){
-                Call.sendMessage(announcements[announcementIndex]);
+                Call.sendMessage("[accent]" + "-".repeat(15) + "[gold] ANNOUNCEMENT [accent]" + "-".repeat(15) + "\n" +
+                        announcements[announcementIndex]);
                 announcementIndex = (announcementIndex + 1) % announcements.length;
+            }
+
+            if(interval.get(timerSecond, secondTime)){
+                List<String> toRemove = new ArrayList<>();
+                for(String uuid : rainbowUuids){
+                    if(!uuidMapping.containsKey(uuid)){
+                        toRemove.add(uuid);
+                        continue;
+                    }
+                    Player ply = uuidMapping.get(uuid).player;
+                    String col = rainbow[rainbowInd];
+                    ply.name = (ply.admin ? "" : stringHandler.donatorMessagePrefix(ply.donatorLevel)) + col
+                            + Strings.stripColors(uuidMapping.get(ply.uuid()).rawName);
+                    Events.fire(new EventType.CustomEvent(new String[]{"newName", ply.uuid()}));
+                    rainbowInd = (rainbowInd + 1) % rainbow.length;
+                }
+
+                for(String uuid : toRemove){
+                    rainbowUuids.remove(uuid);
+                }
             }
         });
 
@@ -689,6 +714,17 @@ public class AABase extends Plugin{
                     + Strings.stripColors(uuidMapping.get(player.uuid()).rawName);
             Events.fire(new EventType.CustomEvent(new String[]{"newName", player.uuid()}));
             player.sendMessage("[accent]Name color updated.");
+        });
+
+        handler.<Player>register("rainbow", "[sky]Change your name to be rainbow (donator only)", (args, player) -> {
+            if(player.donatorLevel < 1){
+                player.sendMessage("[accent]Only donators have access to this command");
+                return;
+            }
+
+            rainbowUuids.add(player.uuid());
+
+
         });
 
         handler.<Player>register("kill", "[sky]Destroy yourself (donator only)", (args, player) ->{
