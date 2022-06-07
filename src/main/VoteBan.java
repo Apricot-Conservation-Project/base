@@ -103,7 +103,6 @@ public class VoteBan {
 
         uuidMapping.get(uuid).player.con.kick("[accent]You are banned for another [scarlet]" +
                 minutes + "[accent] minutes.\nReason: [white]" + reason);
-        uuidMapping.remove(uuid);
     }
 
     public String startVoteBan(String uuid, int minutes, String reason, String voter){

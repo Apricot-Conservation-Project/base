@@ -557,7 +557,6 @@ public class AABase extends Plugin{
             // Check name first:
             for(String uuid : uuidMapping.keySet()){
                 CustomPlayer cPly = uuidMapping.get(uuid);
-                Log.info(cPly.rawName + ", " + args);
                 if(Strings.stripColors(cPly.rawName).equalsIgnoreCase(Strings.stripColors(args[0]))
                 || Strings.stripColors(cPly.player.name).equalsIgnoreCase(Strings.stripColors(args[0]))){
                     found = cPly.player;
