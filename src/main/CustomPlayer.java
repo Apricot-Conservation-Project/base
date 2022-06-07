@@ -14,7 +14,9 @@ public class CustomPlayer{
     public int lastvoteBan;
     public boolean destroyMode = false;
     public String namePrefix;
+    public boolean rainbow = false;
     public int dTime;
+
 
     public boolean hudEnabled = true;
 

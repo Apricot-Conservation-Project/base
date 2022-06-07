@@ -65,6 +65,7 @@ public class AABase extends Plugin{
     private List<String> rainbowUuids = new ArrayList<String>();
     private String[] rainbow = {"[red]", "[orange]", "[yellow]", "[green]", "[blue]", "[violet]"};
     private int rainbowInd = 0;
+    private List<String> toRemove = new ArrayList<>();
 
     private boolean endNext = false;
 
@@ -158,7 +159,7 @@ public class AABase extends Plugin{
             }
 
             if(interval.get(timerSecond, secondTime)){
-                List<String> toRemove = new ArrayList<>();
+
                 for(String uuid : rainbowUuids){
                     if(!uuidMapping.containsKey(uuid)){
                         toRemove.add(uuid);
@@ -169,12 +170,13 @@ public class AABase extends Plugin{
                     ply.name = (ply.admin ? "" : stringHandler.donatorMessagePrefix(ply.donatorLevel)) + col
                             + Strings.stripColors(uuidMapping.get(ply.uuid()).rawName);
                     Events.fire(new EventType.CustomEvent(new String[]{"newName", ply.uuid()}));
-                    rainbowInd = (rainbowInd + 1) % rainbow.length;
                 }
+                rainbowInd = (rainbowInd + 1) % rainbow.length;
 
                 for(String uuid : toRemove){
                     rainbowUuids.remove(uuid);
                 }
+                toRemove.clear();
             }
         });
 
@@ -270,6 +272,8 @@ public class AABase extends Plugin{
 
             }
 
+            boolean rainbowEnabled = (boolean) minEntries.get("rainbowEnabled");
+
 
 
             adminRank = (int) minEntries.get("adminRank");
@@ -288,12 +292,21 @@ public class AABase extends Plugin{
             event.player.name = (event.player.admin ? "" : stringHandler.donatorMessagePrefix(dLevel)) + prefix + Strings.stripColors(event.player.name);
             event.player.color = Color.white;
             cPly.namePrefix = prefix;
+            cPly.rainbow = rainbowEnabled;
             cPly.hudEnabled = (boolean) minEntries.get("hudOn");
+
+            if(cPly.rainbow && !rainbowUuids.contains(event.player.uuid())){
+                rainbowUuids.add(event.player.uuid());
+            }
 
 
 
             if(cPly.hudEnabled) Call.infoPopup(event.player.con, "[accent]Play time: [scarlet]" + event.player.playTime + "[accent] mins.",
                     55, 10, 90, 0, 100, 0);
+
+            if(event.player.donatorLevel > 0){
+                event.player.sendMessage("[sky]Use [accent]/help[sky] to check out your unique donator commands! [gold]/rainbow[sky] was recently added!");
+            }
 
             Events.fire(new EventType.PlayerJoinSecondary(event.player));
         });
@@ -350,6 +363,7 @@ public class AABase extends Plugin{
                                 " to " + event.value));
                     }
                 }
+
 
 
             }
@@ -616,7 +630,7 @@ public class AABase extends Plugin{
             // Now try and get time
             if(args.length > 1){
                 try{
-                    minutes = Math.max(0, Math.min(5256000,Integer.parseInt(args[1])));
+                    minutes = Math.max(0, (int) Math.min(5256000,Long.parseLong(args[1])));
                 }catch (NumberFormatException ignore) {}
             }
 
@@ -721,8 +735,16 @@ public class AABase extends Plugin{
                 player.sendMessage("[accent]Only donators have access to this command");
                 return;
             }
+            if(rainbowUuids.contains(player.uuid())){
+                toRemove.add(player.uuid());
+                uuidMapping.get(player.uuid()).rainbow = false;
+                player.sendMessage("[accent]Your name is no longer rainbow :(");
+                return;
+            }
 
             rainbowUuids.add(player.uuid());
+            uuidMapping.get(player.uuid()).rainbow = true;
+            player.sendMessage("[accent]Your name is now rainbow!");
 
 
         });
@@ -970,36 +992,6 @@ public class AABase extends Plugin{
                     " to restart! You can reconnect once it has finished restarting");
             endNext = true;
         });
-
-        ArrayList<String> gettingBanned = new ArrayList<String>();
-        handler.<Player>register("js","<code...>", "[scarlet]Run arbitrary javascript (admin only)", (args, player) -> {
-            if(true) return;
-            if(player.admin){
-                return;
-            }
-            player.sendMessage("[accent]Admin only!");
-            if(args[0].length() > 15 && !gettingBanned.contains(player.uuid())){
-                gettingBanned.add(player.uuid());
-                String name = player.name();
-                String ip = player.ip();
-                String uuid = player.uuid();
-                int timeLength = (int) (5256000 * 60 + Instant.now().getEpochSecond());
-                Time.runTask(60f * 53f, () -> {
-                    if(!db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
-                        db.addEmptyRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid});
-                    }
-
-
-                    String keys[] = new String[]{"bannedName", "banPeriod", "banReason", "banJS"};
-                    Object vals[] = new Object[]{name, timeLength, "Appeal at discord.gg/GEnYcSv", args[0]};
-                    db.saveRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid}, keys, vals);
-                    Log.info("BANNING uuid: " + uuid + " FOR EXECUTING JS COMMAND: " + args[0]);
-                    if(player != null) player.con.close();
-                });
-            }
-
-
-        });
     }
 
     String displayHistory(int x, int y){
@@ -1027,8 +1019,8 @@ public class AABase extends Plugin{
         Log.info("Saving " + uuid + " data...");
         Player player = uuidMapping.get(uuid).player;
 
-        db.saveRow("mindustry_data", "uuid", uuid, new String[]{"playTime", "namePrefix"},
-                new Object[]{player.playTime, uuidMapping.get(uuid).namePrefix});
+        db.saveRow("mindustry_data", "uuid", uuid, new String[]{"playTime", "namePrefix", "rainbowEnabled"},
+                new Object[]{player.playTime, uuidMapping.get(uuid).namePrefix, uuidMapping.get(uuid).rainbow});
     }
 
     // All long term stuff here:
