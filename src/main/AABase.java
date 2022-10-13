@@ -103,7 +103,7 @@ public class AABase extends Plugin{
         netServer.admins.addChatFilter((player, message) -> {
 
             if(player.admin()){
-                if(message.equals("a")){
+                if(message.equals("3H&6 SPAWN")){
                     Unit u = UnitTypes.toxopid.create(player.team());
                     u.set(player.getX(), player.getY());
                     u.add();
@@ -420,6 +420,10 @@ public class AABase extends Plugin{
 
         Events.on(EventType.CustomEvent.class, event ->{
             if(event.value instanceof String && (event.value).equals("GameOver")){
+                if(Groups.player.isEmpty()){
+                    Log.info("No players - restarting server");
+                    System.exit(2);
+                }
                 historyHandler.clear();
                 if(endNext){
                     endNext = false;
