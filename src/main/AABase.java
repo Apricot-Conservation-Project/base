@@ -425,6 +425,7 @@ public class AABase extends Plugin{
                     System.exit(2);
                 }
                 historyHandler.clear();
+                uuidMapping.keySet().removeIf(uuid -> !uuidMapping.get(uuid).connected);
                 if(endNext){
                     endNext = false;
                     netServer.kickAll(Packets.KickReason.serverRestarting);
