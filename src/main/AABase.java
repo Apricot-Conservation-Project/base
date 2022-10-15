@@ -147,8 +147,15 @@ public class AABase extends Plugin{
             if(interval.get(timerMinute, minuteTime)){
                 for(Player player : Groups.player){
                     player.playTime += 1;
-                    if(uuidMapping.get(player.uuid()).hudEnabled) Call.infoPopup(player.con, "[accent]Play time: [scarlet]" + player.playTime + "[accent] mins.",
-                            60, 10, 90, 0, 100, 0);
+                    try {
+                        if (uuidMapping.get(player.uuid()).hudEnabled)
+                            Call.infoPopup(player.con, "[accent]Play time: [scarlet]" + player.playTime + "[accent] mins.",
+                                    60, 10, 90, 0, 100, 0);
+                    }catch(Exception e){
+                        Log.err("Play time error, player object: " + player + "\n" +
+                                "uuidMapping of object: " + uuidMapping.get(player.uuid()) + "\n" +
+                                "Error: " + e);
+                    }
                 }
             }
 
