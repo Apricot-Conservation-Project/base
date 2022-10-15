@@ -248,6 +248,7 @@ public class AABase extends Plugin{
 
             CustomPlayer cPly = uuidMapping.get(event.player.uuid());
             cPly.player = event.player;
+            cPly.connected = true;
 
             idMapping.put(String.valueOf(event.player.id), event.player.uuid()); // For bans
 
@@ -319,6 +320,7 @@ public class AABase extends Plugin{
         });
 
         Events.on(EventType.PlayerLeave.class, event -> {
+            uuidMapping.get(event.player.uuid()).connected = false;
             savePlayerData(event.player.uuid());
 
 
