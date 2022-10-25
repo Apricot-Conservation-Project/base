@@ -136,6 +136,11 @@ public class VoteBan {
             return "[accent]Max ban time for your rank is [scarlet]300 [accent]minutes" + votekickSyntax;
         }
 
+        // Check if uuid is admin
+        if(!voterPly.admin && uuidMapping.get(uuid).player.admin){
+            return "[accent]Cannot ban an admin!";
+        }
+
         // Check if uuid is already banned
         if(!voterPly.admin && db.hasRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid})){
             HashMap<String, Object> entries = db.loadRow("bans", new String[]{"ip", "uuid"}, new Object[]{ip, uuid});
