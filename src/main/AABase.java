@@ -97,7 +97,7 @@ public class AABase extends Plugin{
         netServer.admins.addActionFilter((action) -> {
             if(codeRed) return false;
 
-            if(Objects.equals(action.player.uuid(), voteBan.uuidTrial)) return false;
+            if(Objects.equals(action.player.uuid(), voteBan.uuidTrial) && voteBan.currentVoteBan) return false;
 
             return true;
         });
