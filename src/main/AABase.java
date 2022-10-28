@@ -267,7 +267,7 @@ public class AABase extends Plugin{
                 // Check for donation expiration
                 if(dLevel != 0 && donationExpired(datEntries.get("userID"))){
                     Call.infoMessage(event.player.con, "\n[accent]You're donator rank has expired!");
-                    db.saveRow("data", "uuid", event.player.uuid(), "donatorLevel", 0);
+                    db.saveRow("data", "userID", datEntries.get("userID"), "donatorLevel", 0);
                     dLevel = 0;
                 }
 
@@ -282,7 +282,7 @@ public class AABase extends Plugin{
 
             }
 
-            boolean rainbowEnabled = (boolean) minEntries.get("rainbowEnabled");
+            boolean rainbowEnabled = (boolean) minEntries.get("rainbowEnabled") && dLevel != 0;
 
 
 
