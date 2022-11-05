@@ -38,8 +38,9 @@ public class AABase extends Plugin{
     private int seconds;
 
     private final static float serverCloseTime = 60f * 2f;
-    private final static int tenSecondTime = 60 * 10, minuteTime = 60 * 60, announcementTime = 60 * 60 * 5, secondTime = 60;
-    private final static int timerTen = 0, timerMinute = 1, timerAnnouncement = 2, timerSecond = 3;
+    private final static int tenSecondTime = 60 * 10, minuteTime = 60 * 60, announcementTime = 60 * 60 * 5,
+            secondTime = 60, brokenResetTime = 60 * 120;
+    private final static int timerTen = 0, timerMinute = 1, timerAnnouncement = 2, timerSecond = 3, timerBrokenReset = 4;
     private final Interval interval = new Interval(10);
 
     private final DBInterface db = new DBInterface();
@@ -96,6 +97,9 @@ public class AABase extends Plugin{
 
         netServer.admins.addActionFilter((action) -> {
             if(codeRed) return false;
+
+            CustomPlayer cPly = uuidMapping.get(action.player.uuid());
+            if(cPly.brokenBlocksValue > 300 && cPly.player.playTime < 30) return false;
 
             if(Objects.equals(action.player.uuid(), voteBan.uuidTrial) && voteBan.currentVoteBan) return false;
 
@@ -186,6 +190,12 @@ public class AABase extends Plugin{
                     rainbowUuids.remove(uuid);
                 }
                 toRemove.clear();
+            }
+
+            if(interval.get(timerBrokenReset, brokenResetTime)){
+                for(CustomPlayer cPly : uuidMapping.values()){
+                    cPly.resetBroken();
+                }
             }
         });
 
@@ -343,6 +353,9 @@ public class AABase extends Plugin{
                             (event.breaking ? "[red] - " : "[green] + ") + event.unit.getPlayer().name + "[accent]:" +
                                     (event.breaking ? "[scarlet] broke [accent]this tile" : "[lime] placed [accent]" +
                                             event.tile.block().name));
+                    if(event.breaking){
+                        uuidMapping.get(event.unit.getPlayer().uuid()).addBroken(event.tile.block());
+                    }
                 }
             }catch(NullPointerException ignored){
             }

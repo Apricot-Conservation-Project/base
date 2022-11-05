@@ -1,7 +1,11 @@
 package main;
 
+import arc.math.Mathf;
+import arc.util.Time;
 import mindustry.game.Team;
+import mindustry.gen.Call;
 import mindustry.gen.Player;
+import mindustry.world.Block;
 
 import java.time.Instant;
 
@@ -16,6 +20,8 @@ public class CustomPlayer{
     public String namePrefix;
     public boolean rainbow = false;
     public int dTime;
+    int brokenBlocksValue = 0;
+    boolean tooManyBroken = false;
 
 
     public boolean hudEnabled = true;
@@ -25,6 +31,21 @@ public class CustomPlayer{
         this.player = player;
         this.rawName = player.name;
         this.lastvoteBan = (int) Instant.now().getEpochSecond() - 60 * 5;
+    }
+
+    public void addBroken(Block block){
+        if(tooManyBroken) return;
+        brokenBlocksValue += block.buildCost;
+        if(brokenBlocksValue > 300 && player.playTime < 30){
+            Call.sendMessage("[accent]Player [white]" + player.name() + "[accent] is new and has broken too many blocks! " +
+                    "They are temporarily blocked from building!");
+            tooManyBroken = true;
+        }
+    }
+
+    public void resetBroken(){
+        brokenBlocksValue = 0;
+        tooManyBroken = false;
     }
 
 }
