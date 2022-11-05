@@ -20,7 +20,7 @@ public class CustomPlayer{
     public String namePrefix;
     public boolean rainbow = false;
     public int dTime;
-    int brokenBlocksValue = 0;
+    int brokenBlocks = 0;
     boolean sus = false;
 
 
@@ -33,11 +33,12 @@ public class CustomPlayer{
         this.lastvoteBan = (int) Instant.now().getEpochSecond() - 60 * 5;
     }
 
-    public void addBroken(Block block){
+    public void addBroken(){
+
         if(sus) return;
-        brokenBlocksValue += block.buildCost;
-        if(brokenBlocksValue > 300 && player.playTime < 30){
-            Call.sendMessage("[accent]Player [white]" + player.name() + "[accent] is new and has broken too many blocks! " +
+        brokenBlocks ++;
+        if(brokenBlocks > 100 && player.playTime < 10){
+            Call.sendMessage("[red]Player [white]" + player.name() + "[red] is new and has broken too many blocks! " +
                     "They are blocked from building for the next 2 minutes!");
             sus = true;
             Time.runTask(60f * 120, this::resetSus);
@@ -45,7 +46,7 @@ public class CustomPlayer{
     }
 
     public void resetBroken(){
-        brokenBlocksValue = 0;
+        brokenBlocks = 0;
     }
 
     public void resetSus(){

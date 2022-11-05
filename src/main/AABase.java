@@ -13,6 +13,7 @@ import mindustry.gen.*;
 import mindustry.mod.*;
 import mindustry.net.Administration;
 import mindustry.net.Packets;
+import mindustry.world.Block;
 import mindustry.world.Tile;
 import mindustry.world.blocks.power.PowerNode;
 
@@ -353,9 +354,10 @@ public class AABase extends Plugin{
                             (event.breaking ? "[red] - " : "[green] + ") + event.unit.getPlayer().name + "[accent]:" +
                                     (event.breaking ? "[scarlet] broke [accent]this tile" : "[lime] placed [accent]" +
                                             event.tile.block().name));
-                    if(event.breaking){
-                        uuidMapping.get(event.unit.getPlayer().uuid()).addBroken(event.tile.block());
-                    }
+                }
+
+                if(event.breaking){
+                    uuidMapping.get(event.unit.getPlayer().uuid()).addBroken();
                 }
             }catch(NullPointerException ignored){
             }
