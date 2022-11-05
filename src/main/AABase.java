@@ -99,7 +99,7 @@ public class AABase extends Plugin{
             if(codeRed) return false;
 
             CustomPlayer cPly = uuidMapping.get(action.player.uuid());
-            if(cPly.brokenBlocksValue > 300 && cPly.player.playTime < 30) return false;
+            if(cPly.sus) return false;
 
             if(Objects.equals(action.player.uuid(), voteBan.uuidTrial) && voteBan.currentVoteBan) return false;
 

@@ -21,7 +21,7 @@ public class CustomPlayer{
     public boolean rainbow = false;
     public int dTime;
     int brokenBlocksValue = 0;
-    boolean tooManyBroken = false;
+    boolean sus = false;
 
 
     public boolean hudEnabled = true;
@@ -34,18 +34,22 @@ public class CustomPlayer{
     }
 
     public void addBroken(Block block){
-        if(tooManyBroken) return;
+        if(sus) return;
         brokenBlocksValue += block.buildCost;
         if(brokenBlocksValue > 300 && player.playTime < 30){
             Call.sendMessage("[accent]Player [white]" + player.name() + "[accent] is new and has broken too many blocks! " +
-                    "They are temporarily blocked from building!");
-            tooManyBroken = true;
+                    "They are blocked from building for the next 2 minutes!");
+            sus = true;
+            Time.runTask(60f * 120, this::resetSus);
         }
     }
 
     public void resetBroken(){
         brokenBlocksValue = 0;
-        tooManyBroken = false;
+    }
+
+    public void resetSus(){
+        sus = false;
     }
 
 }
