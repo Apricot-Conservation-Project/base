@@ -439,6 +439,7 @@ public class AABase extends Plugin{
                 uuidMapping.keySet().removeIf(uuid -> !uuidMapping.get(uuid).connected);
                 if(endNext){
                     endNext = false;
+                    Call.infoMessage("[accent]Server is restarting! Join back after a few seconds...");
                     netServer.kickAll(Packets.KickReason.serverRestarting);
                     Log.info("Game ended successfully.");
                     Time.runTask(serverCloseTime, () -> System.exit(2));
