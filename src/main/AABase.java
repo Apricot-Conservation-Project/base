@@ -598,6 +598,11 @@ public class AABase extends Plugin{
 
         handler.<Player>register("votekick", "[id/name] [minutes] [reason...]", "Start a vote ban for a player id, or immediately ban if admin", (args, player) -> {
 
+            if(player.playTime < 30){
+                player.sendMessage("You must have at least 30 minutes of playtime to start a votekick!");
+                return;
+            }
+
             if(args.length == 0){
                 player.sendMessage(voteBan.getSyntax());
                 return;
