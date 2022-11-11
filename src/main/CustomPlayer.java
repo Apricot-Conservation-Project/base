@@ -12,6 +12,9 @@ import java.time.Instant;
 public class CustomPlayer{
 
     protected Player player;
+
+    public int playTime;
+    public int donatorLevel;
     public boolean connected;
     public String rawName;
     public boolean historyMode = false;

@@ -13,12 +13,12 @@ repositories{
 
 ext{
     //the build number that this plugin is made for
-    mindustryVersion = 'v126.2'
+    mindustryVersion = 'v140.3'
 }
 
 dependencies{
     compileOnly "com.github.Anuken.Arc:arc-core:$mindustryVersion"
-    compileOnly 'com.github.Recessive.aaMindustryServer:core:v0.1'
+    compileOnly "com.github.Anuken.Mindustry:core:$mindustryVersion"
     compile 'mysql:mysql-connector-java:8.0.12'
 }
 

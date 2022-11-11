@@ -153,10 +153,11 @@ public class AABase extends Plugin{
 
             if(interval.get(timerMinute, minuteTime)){
                 for(Player player : Groups.player){
-                    player.playTime += 1;
+                    CustomPlayer cPly = uuidMapping.get(player.uuid());
+                    cPly.playTime += 1;
                     try {
-                        if (uuidMapping.get(player.uuid()).hudEnabled)
-                            Call.infoPopup(player.con, "[accent]Play time: [scarlet]" + player.playTime + "[accent] mins.",
+                        if (cPly.hudEnabled)
+                            Call.infoPopup(player.con, "[accent]Play time: [scarlet]" + cPly.playTime + "[accent] mins.",
                                     60, 10, 90, 0, 100, 0);
                     }catch(Exception e){
                         Log.err("Play time error, player object: " + player + "\n" +
@@ -179,11 +180,12 @@ public class AABase extends Plugin{
                         toRemove.add(uuid);
                         continue;
                     }
-                    Player ply = uuidMapping.get(uuid).player;
+                    CustomPlayer cPly = uuidMapping.get(uuid);
+                    Player ply = cPly.player;
                     String col = rainbow[rainbowInd];
-                    ply.name = (ply.admin ? "" : stringHandler.donatorMessagePrefix(ply.donatorLevel)) + col
+                    ply.name = (ply.admin ? "" : stringHandler.donatorMessagePrefix(cPly.donatorLevel)) + col
                             + Strings.stripColors(uuidMapping.get(ply.uuid()).rawName);
-                    Events.fire(new EventType.CustomEvent(new String[]{"newName", ply.uuid()}));
+                    Events.fire(new CustomEvents.NewName(ply.uuid()));
                 }
                 rainbowInd = (rainbowInd + 1) % rainbow.length;
 
@@ -307,8 +309,8 @@ public class AABase extends Plugin{
 
             db.saveRow("mindustry_data", "uuid", event.player.uuid(), "latestName", event.player.name);
 
-            event.player.playTime = (int) minEntries.get("playTime");
-            event.player.donatorLevel = dLevel;
+            cPly.playTime = (int) minEntries.get("playTime");
+            cPly.donatorLevel = dLevel;
 
             event.player.name = (event.player.admin ? "" : stringHandler.donatorMessagePrefix(dLevel)) + prefix + Strings.stripColors(event.player.name);
             event.player.color = Color.white;
@@ -322,14 +324,14 @@ public class AABase extends Plugin{
 
 
 
-            if(cPly.hudEnabled) Call.infoPopup(event.player.con, "[accent]Play time: [scarlet]" + event.player.playTime + "[accent] mins.",
+            if(cPly.hudEnabled) Call.infoPopup(event.player.con, "[accent]Play time: [scarlet]" + cPly.playTime + "[accent] mins.",
                     55, 10, 90, 0, 100, 0);
 
-            if(event.player.donatorLevel > 0){
+            if(cPly.donatorLevel > 0){
                 event.player.sendMessage("[sky]Use [accent]/help[sky] to check out your unique donator commands! [gold]/rainbow[sky] was recently added!");
             }
 
-            Events.fire(new EventType.PlayerJoinSecondary(event.player));
+            Events.fire(new CustomEvents.PlayerJoinSecondary(event.player, cPly.playTime, cPly.donatorLevel));
         });
 
         Events.on(EventType.PlayerLeave.class, event -> {
@@ -374,13 +376,6 @@ public class AABase extends Plugin{
                              "[scarlet] disconnected" : "[lime] connected" +
                              "[accent] this tile"));
                     }
-                }else
-                if(event.tile.block() == Blocks.commandCenter){
-                    for(Tile t : tiles){
-                        historyHandler.addEntry(t.x, t.y,
-                        "[orange] ~ [accent]" + event.player.name + "[accent]: " +
-                            event.value);
-                    }
                 }else {
                     for(Tile t : tiles){
                         historyHandler.addEntry(t.x, t.y,
@@ -405,7 +400,7 @@ public class AABase extends Plugin{
                     Call.sendMessage(event.player.name + " [accent]used [scarlet]/destroy[accent] to break [scarlet]" +
                             event.tile.block().name + "[accent] at ([scarlet]" + event.tile.x + "[accent],[scarlet]" +
                             event.tile.y + "[accent])");
-                    Call.tileDestroyed(event.tile.build);
+                    Call.buildDestroyed(event.tile.build);
 
                     uuidMapping.get(event.player.uuid()).destroyMode = false;
 
@@ -423,43 +418,33 @@ public class AABase extends Plugin{
         Events.on(EventType.UnitDestroyEvent.class, event -> {
             if(event.unit.getPlayer() != null){
                 Player player = event.unit.getPlayer();
-                if(player.donatorLevel == 1){
+                CustomPlayer cPly = uuidMapping.get(player.uuid());
+                if(cPly.donatorLevel == 1){
                     Call.effectReliable(Fx.landShock, player.x, player.y, 0, Color.white);
-                } else if(player.donatorLevel == 2){
-                    Call.effectReliable(Fx.nuclearcloud, player.x, player.y, 0, Color.white);
-                } else if(player.playTime > 1000){
+                } else if(cPly.donatorLevel == 2){
+                    Call.effectReliable(Fx.airBubble, player.x, player.y, 0, Color.white);
+                } else if(cPly.playTime > 1000){
                     Call.effectReliable(Fx.heal, player.x, player.y, 0, Color.white);
                 }
             }
         });
 
-        Events.on(EventType.PlayerSpawn.class, event -> {
-            if(event.player.donatorLevel == 1){
-                Call.effectReliable(Fx.landShock, event.player.x, event.player.y, 0, Color.white);
-            } else if(event.player.donatorLevel == 2){
-                Call.effectReliable(Fx.launch, event.player.x, event.player.y, 0, Color.white);
-            } else if(event.player.playTime > 3000){
-                Call.effectReliable(Fx.healWave, event.player.x, event.player.y, 0, Color.white);
-            }
-        });
 
-
-        Events.on(EventType.CustomEvent.class, event ->{
-            if(event.value instanceof String && (event.value).equals("GameOver")){
-                if(Groups.player.isEmpty()){
-                    Log.info("No players - restarting server");
-                    System.exit(2);
-                }
-                historyHandler.clear();
-                uuidMapping.keySet().removeIf(uuid -> !uuidMapping.get(uuid).connected);
-                if(endNext){
-                    endNext = false;
-                    Call.infoMessage("[accent]Server is restarting! Join back after a few seconds...");
-                    netServer.kickAll(Packets.KickReason.serverRestarting);
-                    Log.info("Game ended successfully.");
-                    Time.runTask(serverCloseTime, () -> System.exit(2));
-                }
+        Events.on(CustomEvents.GameOver.class, event ->{
+            if(Groups.player.isEmpty()){
+                Log.info("No players - restarting server");
+                System.exit(2);
             }
+            historyHandler.clear();
+            uuidMapping.keySet().removeIf(uuid -> !uuidMapping.get(uuid).connected);
+            if(endNext){
+                endNext = false;
+                Call.infoMessage("[accent]Server is restarting! Join back after a few seconds...");
+                netServer.kickAll(Packets.KickReason.serverRestarting);
+                Log.info("Game ended successfully.");
+                Time.runTask(serverCloseTime, () -> System.exit(2));
+            }
+
         });
 
     }
@@ -501,13 +486,13 @@ public class AABase extends Plugin{
                 return;
             }
 
-            Player ply = uuidMapping.get(args[0]).player;
+            CustomPlayer cPly = uuidMapping.get(args[0]);
 
             db.saveRow("mindustry_data", "uuid", args[0], "playTime", newTime);
 
-            if(!(ply == null)){
-                ply.playTime = newTime;
-                Call.setHudTextReliable(ply.con, "[accent]Play time: [scarlet]" + ply.playTime + "[accent] mins.");
+            if(!(cPly.player == null)){
+                cPly.playTime = newTime;
+                Call.setHudTextReliable(cPly.player.con, "[accent]Play time: [scarlet]" + cPly.playTime + "[accent] mins.");
             }
             Log.info("Set uuid " + args[0] + " to have play time of " + args[1] + " minutes");
 
@@ -613,8 +598,8 @@ public class AABase extends Plugin{
         });
 
         handler.<Player>register("votekick", "[id/name] [minutes] [reason...]", "Start a vote ban for a player id, or immediately ban if admin", (args, player) -> {
-
-            if(player.playTime < 30){
+            CustomPlayer cPly = uuidMapping.get(player.uuid());
+            if(cPly.playTime < 30){
                 player.sendMessage("You must have at least 30 minutes of playtime to start a votekick!");
                 return;
             }
@@ -632,7 +617,6 @@ public class AABase extends Plugin{
 
             // Check name first:
             for(String uuid : uuidMapping.keySet()){
-                CustomPlayer cPly = uuidMapping.get(uuid);
                 if(Strings.stripColors(cPly.rawName).equalsIgnoreCase(Strings.stripColors(args[0]))
                 || Strings.stripColors(cPly.player.name).equalsIgnoreCase(Strings.stripColors(args[0]))){
                     found = cPly.player;
@@ -712,7 +696,8 @@ public class AABase extends Plugin{
         });
 
         handler.<Player>register("dtime", "Time remaining for your donator rank", (args, player) -> {
-            if(player.donatorLevel != 0){
+            CustomPlayer cPly = uuidMapping.get(player.uuid());
+            if(cPly.donatorLevel != 0){
                 int timeRemaining = uuidMapping.get(player.uuid()).dTime - (int) (System.currentTimeMillis()/1000);
                 if(timeRemaining <= 0){
                     player.sendMessage("[accent]You have no time remaining. Next time you log in you will " +
@@ -732,17 +717,20 @@ public class AABase extends Plugin{
         });
 
         handler.<Player>register("hud", "Toggle HUD (display/hide playtime and other info)", (args, player) -> {
-            Events.fire(new EventType.CustomEvent(new String[]{"hudToggle", player.uuid()}));
+
 
             CustomPlayer cPly = uuidMapping.get(player.uuid());
             player.sendMessage("[accent]Hud " + (cPly.hudEnabled ? "[scarlet]disabled. [accent]Hud will clear in 1 minute" : "[green]enabled. [accent]Playtime will show in one minute"));
             cPly.hudEnabled = !cPly.hudEnabled;
 
+            Events.fire(new CustomEvents.HudToggle(player.uuid(), cPly.hudEnabled));
+
             db.saveRow("mindustry_data", "uuid", player.uuid(), "hudOn", cPly.hudEnabled);
         });
 
         handler.<Player>register("color", "[color]", "[sky]Set the color of your name", (args, player) ->{
-            if(player.donatorLevel < 1){
+            CustomPlayer cPly = uuidMapping.get(player.uuid());
+            if(cPly.donatorLevel < 1){
                 player.sendMessage("[accent]Only donators have access to this command");
                 return;
             }
@@ -750,7 +738,7 @@ public class AABase extends Plugin{
                 player.sendMessage("[accent]Use a mindustry color for this command. For example: [aqua] (aqua is not a valid color, this is just an example)");
                 return;
             }
-            if(args[0].contains("#") && player.donatorLevel < 2) {
+            if(args[0].contains("#") && cPly.donatorLevel < 2) {
                 player.sendMessage("[accent]Only " + stringHandler.donatorMessagePrefix(2) + "[accent]can set their name to any color. Use a default mindustry color instead.");
                 return;
             }
@@ -761,14 +749,15 @@ public class AABase extends Plugin{
             }
 
             uuidMapping.get(player.uuid()).namePrefix = args[0];
-            player.name = (player.admin ? "" : stringHandler.donatorMessagePrefix(player.donatorLevel)) + args[0]
+            player.name = (player.admin ? "" : stringHandler.donatorMessagePrefix(cPly.donatorLevel)) + args[0]
                     + Strings.stripColors(uuidMapping.get(player.uuid()).rawName);
-            Events.fire(new EventType.CustomEvent(new String[]{"newName", player.uuid()}));
+            Events.fire(new CustomEvents.NewName(player.uuid()));
             player.sendMessage("[accent]Name color updated.");
         });
 
         handler.<Player>register("rainbow", "[sky]Change your name to be rainbow (donator only)", (args, player) -> {
-            if(player.donatorLevel < 1){
+            CustomPlayer cPly = uuidMapping.get(player.uuid());
+            if(cPly.donatorLevel < 1){
                 player.sendMessage("[accent]Only donators have access to this command");
                 return;
             }
@@ -787,7 +776,8 @@ public class AABase extends Plugin{
         });
 
         handler.<Player>register("kill", "[sky]Destroy yourself (donator only)", (args, player) ->{
-            if(player.donatorLevel < 1){
+            CustomPlayer cPly = uuidMapping.get(player.uuid());
+            if(cPly.donatorLevel < 1){
                 player.sendMessage("[accent]Only donators have access to this command");
                 return;
             }
@@ -795,6 +785,7 @@ public class AABase extends Plugin{
         });
 
         handler.<Player>register("tp", "[player/id]", "[sky]Teleport to player (donator only)", (args, player) -> {
+            CustomPlayer cPly = uuidMapping.get(player.uuid());
 
 
             if (args.length == 0) {
@@ -807,7 +798,7 @@ public class AABase extends Plugin{
                 return;
             }
 
-            if(!player.admin && player.donatorLevel < 1){
+            if(!player.admin && cPly.donatorLevel < 1){
                 player.sendMessage("[accent]Only donators have access to this command");
                 return;
             }
@@ -1054,10 +1045,10 @@ public class AABase extends Plugin{
             return;
         }
         Log.info("Saving " + uuid + " data...");
-        Player player = uuidMapping.get(uuid).player;
+        CustomPlayer cPly = uuidMapping.get(player.uuid());
 
         db.saveRow("mindustry_data", "uuid", uuid, new String[]{"playTime", "namePrefix", "rainbowEnabled"},
-                new Object[]{player.playTime, uuidMapping.get(uuid).namePrefix, uuidMapping.get(uuid).rainbow});
+                new Object[]{cPly.playTime, cPly.namePrefix, cPly.rainbow});
     }
 
     // All long term stuff here:
