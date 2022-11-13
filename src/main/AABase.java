@@ -136,7 +136,7 @@ public class AABase extends Plugin{
             return message;
         });
 
-        Events.on(EventType.Trigger.class, event ->{
+        Events.run(EventType.Trigger.update, () ->{
             if(interval.get(timerTen, tenSecondTime)){
                 seconds = (int) (System.currentTimeMillis() / 1000);
                 try {
@@ -1045,7 +1045,7 @@ public class AABase extends Plugin{
             return;
         }
         Log.info("Saving " + uuid + " data...");
-        CustomPlayer cPly = uuidMapping.get(player.uuid());
+        CustomPlayer cPly = uuidMapping.get(uuid);
 
         db.saveRow("mindustry_data", "uuid", uuid, new String[]{"playTime", "namePrefix", "rainbowEnabled"},
                 new Object[]{cPly.playTime, cPly.namePrefix, cPly.rainbow});
