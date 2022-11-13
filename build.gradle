@@ -17,10 +17,8 @@ ext{
 }
 
 dependencies{
-    implementation files("libs/aaShared.jar")
-
-    implementation "com.github.Anuken.Arc:arc-core:$mindustryVersion"
-    implementation "com.github.Anuken.Mindustry:core:$mindustryVersion"
+    compileOnly "com.github.Anuken.Arc:arc-core:$mindustryVersion"
+    compileOnly 'com.github.Recessive:aaMindustryServer:master-SNAPSHOT'
     implementation 'mysql:mysql-connector-java:8.0.12'
 }
 

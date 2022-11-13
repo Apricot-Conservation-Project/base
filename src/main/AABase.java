@@ -1,7 +1,5 @@
 package main;
 
-import aaShared.CustomEvents;
-
 import arc.*;
 import arc.graphics.Color;
 import arc.math.Mathf;
@@ -187,7 +185,7 @@ public class AABase extends Plugin{
                     String col = rainbow[rainbowInd];
                     ply.name = (ply.admin ? "" : stringHandler.donatorMessagePrefix(cPly.donatorLevel)) + col
                             + Strings.stripColors(uuidMapping.get(ply.uuid()).rawName);
-                    Events.fire(new CustomEvents.NewName(ply.uuid()));
+                    Events.fire(new EventType.NewName(ply.uuid()));
                 }
                 rainbowInd = (rainbowInd + 1) % rainbow.length;
 
@@ -333,7 +331,7 @@ public class AABase extends Plugin{
                 event.player.sendMessage("[sky]Use [accent]/help[sky] to check out your unique donator commands! [gold]/rainbow[sky] was recently added!");
             }
 
-            Events.fire(new CustomEvents.PlayerJoinSecondary(event.player, cPly.playTime, cPly.donatorLevel));
+            Events.fire(new EventType.PlayerJoinSecondary(event.player, cPly.playTime, cPly.donatorLevel));
         });
 
         Events.on(EventType.PlayerLeave.class, event -> {
@@ -432,7 +430,7 @@ public class AABase extends Plugin{
         });
 
 
-        Events.on(CustomEvents.GameOver.class, event ->{
+        Events.on(EventType.GameOver.class, event ->{
             if(Groups.player.isEmpty()){
                 Log.info("No players - restarting server");
                 System.exit(2);
@@ -725,7 +723,7 @@ public class AABase extends Plugin{
             player.sendMessage("[accent]Hud " + (cPly.hudEnabled ? "[scarlet]disabled. [accent]Hud will clear in 1 minute" : "[green]enabled. [accent]Playtime will show in one minute"));
             cPly.hudEnabled = !cPly.hudEnabled;
 
-            Events.fire(new CustomEvents.HudToggle(player.uuid(), cPly.hudEnabled));
+            Events.fire(new EventType.HudToggle(player.uuid(), cPly.hudEnabled));
 
             db.saveRow("mindustry_data", "uuid", player.uuid(), "hudOn", cPly.hudEnabled);
         });
@@ -753,7 +751,7 @@ public class AABase extends Plugin{
             uuidMapping.get(player.uuid()).namePrefix = args[0];
             player.name = (player.admin ? "" : stringHandler.donatorMessagePrefix(cPly.donatorLevel)) + args[0]
                     + Strings.stripColors(uuidMapping.get(player.uuid()).rawName);
-            Events.fire(new CustomEvents.NewName(player.uuid()));
+            Events.fire(new EventType.NewName(player.uuid()));
             player.sendMessage("[accent]Name color updated.");
         });
 
