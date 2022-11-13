@@ -40,7 +40,7 @@ public class CustomPlayer{
 
         if(sus) return;
         brokenBlocks ++;
-        if(brokenBlocks > 100 && player.playTime < 10){
+        if(brokenBlocks > 100 && playTime < 10){
             Call.sendMessage("[red]Player [white]" + player.name() + "[red] is new and has broken too many blocks! " +
                     "They are blocked from building for the next 2 minutes!");
             sus = true;

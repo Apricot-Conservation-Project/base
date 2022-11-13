@@ -111,8 +111,8 @@ public class VoteBan {
         //  minutes is above 0
         //
         //  voter is in uuidMapping
-
-        Player voterPly = uuidMapping.get(voter).player;
+        CustomPlayer cPly = uuidMapping.get(voter);
+        Player voterPly = cPly.player;
         String ip = netServer.admins.getInfo(uuid).lastIP;
 
         if(currentVoteBan && !voterPly.admin()){
@@ -128,7 +128,7 @@ public class VoteBan {
         }
 
         // Check if minutes is valid time length
-        if(minutes > 60 && voterPly.donatorLevel == 0 && !voterPly.admin){
+        if(minutes > 60 && cPly.donatorLevel == 0 && !voterPly.admin){
             return "[accent]Max ban time for your rank is [scarlet]60 [accent]minutes" + votekickSyntax;
         }
 
