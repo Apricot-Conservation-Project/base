@@ -371,11 +371,16 @@ public class AABase extends Plugin{
                 Seq<Tile> tiles = event.tile.tile.getLinkedTiles(new Seq<>());
                 if(event.tile.block() instanceof PowerNode){
                     for(Tile t : tiles){
-                        historyHandler.addEntry(t.x, t.y,
-                        "[orange] ~ [accent]" + event.player.name + "[accent]:" +
-                             (!(event.value instanceof Point2) && !event.tile.power.links.contains((int) event.value) ?
-                             "[scarlet] disconnected" : "[lime] connected" +
-                             "[accent] this tile"));
+                        try {
+                            historyHandler.addEntry(t.x, t.y,
+                                    "[orange] ~ [accent]" + event.player.name + "[accent]:" +
+                                            (!(event.value instanceof Point2) && !event.tile.power.links.contains((int) event.value) ?
+                                                    "[scarlet] disconnected" : "[lime] connected" +
+                                                    "[accent] this tile"));
+                        }catch(ClassCastException e){
+                            historyHandler.addEntry(t.x, t.y,
+                                    "[orange] ~ [accent]" + event.player.name + "[accent]:[purple] did strange things[accent] to this tile (pls tell me what caused this)");
+                        }
                     }
                 }else {
                     for(Tile t : tiles){
