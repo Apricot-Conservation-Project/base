@@ -3,6 +3,7 @@ package main;
 import arc.*;
 import arc.graphics.Color;
 import arc.math.Mathf;
+import arc.math.geom.Point2;
 import arc.struct.Seq;
 import arc.util.*;
 import mindustry.content.Blocks;
@@ -372,7 +373,7 @@ public class AABase extends Plugin{
                     for(Tile t : tiles){
                         historyHandler.addEntry(t.x, t.y,
                         "[orange] ~ [accent]" + event.player.name + "[accent]:" +
-                             (!event.tile.power.links.contains((int) event.value) ?
+                             (!(event.value instanceof Point2) && !event.tile.power.links.contains((int) event.value) ?
                              "[scarlet] disconnected" : "[lime] connected" +
                              "[accent] this tile"));
                     }
