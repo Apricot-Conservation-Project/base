@@ -1,6 +1,6 @@
 # {AA} Base plugin
 
-No one is allowed to use this plugin without permission.
+Anyone is free to use the code contained for any purpose, credit would be nice :)
 
 ### Building a Jar
 
