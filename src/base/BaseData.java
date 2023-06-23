@@ -1,4 +1,4 @@
-package main;
+package base;
 
 import mindustry.entities.Effect;
 
@@ -8,16 +8,15 @@ import java.util.List;
 
 public class BaseData {
 
-
     public static final List<Effect> effectList;
 
     static {
         List<Effect> tList = new ArrayList<>();
         int ind = 0;
         Effect e = Effect.get(ind);
-        while(e != null){
+        while (e != null) {
             tList.add(e);
-            ind ++;
+            ind++;
             e = Effect.get(ind);
         }
         effectList = Collections.unmodifiableList(tList);

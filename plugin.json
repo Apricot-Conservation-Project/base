@@ -1,7 +1,0 @@
-{
-  "name": "AABasePlugin",
-  "author": "Recessive",
-  "main": "main.AABase",
-  "description": "A base plugin for the {AA} servers",
-  "version": 0.1
-}

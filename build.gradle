@@ -1,8 +1,12 @@
-apply plugin: "java"
+plugins {
+	id 'java-library'
+	// id 'maven-publish'
+}
+
 
 version '1.0'
 
-sourceCompatibility = 1.8
+sourceCompatibility = JavaVersion.VERSION_17
 
 sourceSets.main.java.srcDirs = ["src"]
 
@@ -13,22 +17,31 @@ repositories{
 
 ext{
     //the build number that this plugin is made for
-    mindustryVersion = 'v140.3'
+    mindustryVersion = 'v145'
 }
 
 dependencies{
     compileOnly "com.github.Anuken.Arc:arc-core:$mindustryVersion"
-    compileOnly 'com.github.Recessive:aaMindustryServer:master-SNAPSHOT'
+    compileOnly "com.github.Anuken.Mindustry:core:$mindustryVersion"
     implementation 'mysql:mysql-connector-java:8.0.12'
 }
+
 
 jar{
     archiveFileName = "${project.archivesBaseName}.jar"
     from{
         configurations.runtimeClasspath.collect{it.isDirectory() ? it : zipTree(it)}
     }
-
-    from(rootDir){
-        include "plugin.json"
-    }
 }
+
+// afterEvaluate{publishing{
+//     publications{
+//         release(MavenPublication){
+//             from components.release
+//             groupId = 'com.github.Apricot-Conservation-Project'
+//             artifactId = 'base'
+//             version = 'master-SNAPSHOT'
+//         }
+//     }
+// }}
+
