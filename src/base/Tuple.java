@@ -1,4 +1,4 @@
-package main;
+package base;
 
 public class Tuple<type1, type2> {
 
@@ -11,7 +11,7 @@ public class Tuple<type1, type2> {
      * @param a
      * @param b
      */
-    public Tuple(type1 a, type2 b){
+    public Tuple(type1 a, type2 b) {
         this.a = a;
         this.b = b;
     }
@@ -22,7 +22,7 @@ public class Tuple<type1, type2> {
      * @param index
      * @return Object
      */
-    public Object get(int index){
+    public Object get(int index) {
         assert index == 0 || index == 1;
         return index == 0 ? a : b;
     }
@@ -51,4 +51,3 @@ public class Tuple<type1, type2> {
         return "(" + this.a + ", " + this.b + ")";
     }
 }
-
