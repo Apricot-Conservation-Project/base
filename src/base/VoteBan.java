@@ -34,7 +34,7 @@ public class VoteBan {
 
     private String votekickSyntax = "\n\n[accent]Syntax: [scarlet]/votekick [green][uuid/id] [blue][minutes] [orange][reason...]\n"
             +
-            "[accent]EXAMPLE: [scarlet]/votekick [green]example_id [blue]60 [orange]They have been griefing";
+            "[accent]EXAMPLE: [scarlet]/votekick [green]example_id [blue]60m [orange]They have been griefing";
     private String voteSyntax = "[accent]Type [orange]/vote <y/n>[accent] to vote.";
 
     public VoteBan(HashMap<String, CustomPlayer> uuidMapping, DBInterface db) {
@@ -76,14 +76,19 @@ public class VoteBan {
     }
 
     public String getSyntax() {
-        String s = "[accent]You can vote on the following players: ";
-        for (Player ply : Groups.player) {
-            if (ply.admin) {
-                continue;
-            }
-            s += "\n[gold] - [accent]ID: [scarlet]" + ply.id + "[accent]: [white]" + ply.plainName();
+        if (Groups.player.size() == 0 && Base.recentlyDisconnect.size() == 0) {
+            return "[accent]No players to votekick." + votekickSyntax;
         }
-        s += "\n[accent]Check [scarlet]/recentdc [accent]as well";
+        StringBuilder s = new StringBuilder("[accent]You can vote on the following players: \n");
+        for (Player ply : Groups.player) {
+            if (ply.admin)
+                continue;
+            s.append("[gold] - [accent]ID: [scarlet]" + ply.id + "[accent]: [white]" + ply.plainName() + '\n');
+        }
+        for (var discon : Base.recentlyDisconnect.entrySet()) {
+            s.append("[gold] - [accent]ID: [scarlet]" + discon.getKey() + "[accent]: [white]" +
+                    discon.getValue() + '\n');
+        }
         return s + votekickSyntax;
     }
 

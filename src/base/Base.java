@@ -37,17 +37,50 @@ public class Base {
 
     }
 
+    public static Player getOffinePlayer(Integer id) {
+        try {
+            var p = Groups.player.getByID(id);
+            if (p != null)
+                return p;
+        } catch (Exception _e) {
+        }
+        return uuidMapping.get(idMapping.get(id)).player;
+    }
+
+    @Nullable
+    public static Player find(String[] search, Player exclude, Boolean connected) {
+        if (search.length == 0)
+            return null;
+        return find(search[0], exclude, connected);
+    }
+
     @Nullable
     public static Player find(String search, Player exclude) {
+        return find(search, exclude, true);
+    }
+
+    @Nullable
+    public static Player find(String search, Player exclude, Boolean connected) {
         Player target = null;
         try {
-            target = Groups.player.getByID(Integer.parseInt(search.replace("#", "")));
+            target = getOffinePlayer(Integer.parseInt(search.replace("#", "")));
         } catch (Exception _e) {
+            String search_name = Strings.stripColors(search.replace("@", ""));
             for (Player player : Groups.player) {
                 // c smh
-                if (player != exclude && player.plainName().compareToIgnoreCase(search) == 0) {
+                if (player != exclude && player.plainName().compareToIgnoreCase(search_name) == 0) {
                     target = player;
                     break;
+                }
+            }
+            if (connected == false) {
+                for (var player : recentlyDisconnect.entrySet()) {
+                    if (player.getKey() != exclude.plainName()
+                            && player.getKey().compareToIgnoreCase(search_name) == 0) {
+                        Log.info(idMapping.get(player.getValue()));
+                        target = uuidMapping.get(idMapping.get(player.getValue())).player;
+                        break;
+                    }
                 }
             }
         }
@@ -84,10 +117,13 @@ public class Base {
 
     private DBInterface db;
 
-    public final HashMap<String, CustomPlayer> uuidMapping = new HashMap<>();
-    public final List<String> recentlyDisconnect = new ArrayList<>();
-    public final HashMap<String, String> idMapping = new HashMap<>();
-    public final HistoryHandler historyHandler = new HistoryHandler();
+    // maps name -> id
+    public static final HashMap<String, Integer> recentlyDisconnect = new HashMap<>();
+    // maps id -> uuid
+    public static final HashMap<Integer, String> idMapping = new HashMap<>();
+    // maps uuid -> player
+    public static final HashMap<String, CustomPlayer> uuidMapping = new HashMap<>();
+    public static final HistoryHandler historyHandler = new HistoryHandler();
 
     private int announcementIndex = 0;
     private String[] announcements = { "[accent]Join the discord with [purple]/discord[accent]!",
@@ -270,7 +306,7 @@ public class Base {
             cPly.player = event.player;
             cPly.connected = true;
 
-            idMapping.put(String.valueOf(event.player.id), event.player.uuid()); // For bans
+            idMapping.put(event.player.id, event.player.uuid()); // For bans
 
             int adminRank = 0;
 
@@ -295,11 +331,10 @@ public class Base {
         Events.on(EventType.PlayerLeave.class, event -> {
             uuidMapping.get(event.player.uuid()).connected = false;
             savePlayerData(event.player.uuid());
-            String s = "[scarlet]" + event.player.id + "[accent]: [white]" + event.player.name;
-            recentlyDisconnect.add(s);
-            Time.runTask(60 * 60 * 5, () -> {
-                recentlyDisconnect.remove(s);
-            });
+            if (recentlyDisconnect.put(Strings.stripColors(event.player.name), event.player.id) == null)
+                Time.runTask(60 * 60 * 5, () -> {
+                    recentlyDisconnect.remove(Strings.stripColors(event.player.name));
+                });
         });
 
         Events.on(EventType.BlockBuildEndEvent.class, event -> {
@@ -502,15 +537,15 @@ public class Base {
         });
 
         Function<String[], Consumer<Player>> rcdCommand = args -> player -> {
-            String s = "";
-            for (String discon : recentlyDisconnect) {
-                s += "[accent]ID: " + discon + '\n';
-            }
-            if (s.equals("")) {
+            if (recentlyDisconnect.size() == 0) {
                 player.sendMessage("[accent]No recent disconnects!");
-            } else {
-                player.sendMessage(s);
             }
+            StringBuilder s = new StringBuilder();
+            for (var discon : recentlyDisconnect.entrySet()) {
+                s.append("[accent]ID: [scarlet]" + discon.getKey() + "[accent]: [white]" +
+                        discon.getValue() + '\n');
+            }
+            player.sendMessage(s.toString());
         };
 
         handler.<Player>register("recentdc", "Show a list of recent disconnects", (args, player) -> {
@@ -539,7 +574,7 @@ public class Base {
                     }
 
                     String reason = "None given";
-                    Player found = find(args[0], player);
+                    Player found = find(args[0], player, false);
 
                     if (found == null) {
                         player.sendMessage("[accent]No player with name or id: [white]" + args[0] + "[accent] found!");
@@ -552,8 +587,11 @@ public class Base {
                         String[] newArray = Arrays.copyOfRange(args, 2, args.length);
                         reason = String.join(" ", newArray);
                     }
-
-                    player.sendMessage(voteBan.startVoteBan(found.uuid(), args[1], reason, player.uuid()));
+                    if (args.length == 1) {
+                        player.sendMessage(voteBan.startVoteBan(found.uuid(), 60, reason, player.uuid()));
+                    } else {
+                        player.sendMessage(voteBan.startVoteBan(found.uuid(), args[1], reason, player.uuid()));
+                    }
                 });
 
         handler.<Player>register("historyhere", "Display history for the tile you're positioned over",
@@ -595,35 +633,21 @@ public class Base {
         });
 
         handler.<Player>register("tp", "[player/id]", "[sky]Teleport to player", (args, player) -> {
-            if (args.length == 0) {
-                String s = "[accent]Use [orange]/tp [player/id][accent] to teleport to a players location.\n";
-                s += "You are able to tp to the following players:";
-                for (Player ply : Groups.player) {
-                    s += "\n[accent]Name: [white]" + ply.name + "[accent], ID: [white]" + ply.id;
-                }
-                player.sendMessage(s);
-                return;
-            }
-
-            Player other = find(args[0], player);
-            try {
-                other = Groups.player.getByID(Integer.parseInt(args[0]));
-            } catch (NumberFormatException e) {
-                other = null;
-            }
-
+            Player other = find(args, player, true);
             if (other == null) {
-                other = Groups.player.find(p -> p.name.equalsIgnoreCase(args[0]));
-                if (other == null) {
-                    String s = "[accent]No player by name [white]" + args[0] + "[accent] or id [white]" + args[0]
-                            + "[accent].\n";
-                    s += "You are able to tp to the following players:";
-                    for (Player ply : Groups.player) {
-                        s += "\n[accent]Name: [white]" + ply.name + "[accent], ID: [white]" + ply.id;
-                    }
-                    player.sendMessage(s);
+                if (Groups.player.isEmpty()) {
+                    player.sendMessage("No players to teleport to.");
                     return;
                 }
+                StringBuilder s = new StringBuilder(
+                        "[accent]No player by name [white]" + args[0] + "[accent] or id [white]" + args[0]
+                                + "[accent].\n");
+                s.append("You are able to tp to the following players:");
+                for (Player ply : Groups.player) {
+                    s.append("\n[accent]Name: [white]" + ply.name + "[accent], ID: [white]" + ply.id);
+                }
+                player.sendMessage(s.toString());
+                return;
             }
             Call.effectReliable(Fx.teleportOut, player.x, player.y, 0, Color.white);
             Call.effectReliable(Fx.teleportActivate, other.x, other.y, 0, Color.white);
