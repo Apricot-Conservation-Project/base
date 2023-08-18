@@ -294,7 +294,6 @@ public class Base {
 
             // Databasing stuff first:
             if (!db.hasRow("mindustry_data", "uuid", event.player.uuid())) {
-                Log.info("New player, adding to network tables...");
                 db.addEmptyRow("mindustry_data", "uuid", event.player.uuid());
             }
 
@@ -372,6 +371,7 @@ public class Base {
                                                         ? "[scarlet] disconnected"
                                                         : "[lime] connected" + "[accent] this tile"));
                     } catch (ClassCastException e) {
+                        // power node double click
                         historyHandler.addEntry(t.x, t.y,
                                 "[orange] ~ [accent]" + event.player.name
                                         + "[accent]:[purple] did strange things[accent] to this tile (pls tell me what caused this)");
@@ -408,10 +408,6 @@ public class Base {
     }
 
     public void on_end() {
-        // if (Groups.player.isEmpty()) {
-        // Log.info("No players - restarting server");
-        // System.exit(2);
-        // }
         historyHandler.clear();
         uuidMapping.keySet().removeIf(uuid -> !uuidMapping.get(uuid).connected);
         if (endNext) {
@@ -470,9 +466,9 @@ public class Base {
         });
 
         handler.register("endnextgame", "Ends the game after this round is over", args -> {
-            Call.sendMessage("[scarlet]Server [accent]has called for, [scarlet]AFTER THIS GAME[accent], the server" +
-                    " to restart! You can reconnect once it has finished restarting");
-            Log.info("kill after next game.");
+            Call.sendMessage(
+                    "[scarlet]Server [accent]has called for a restart. [scarlet]AFTER THIS GAME[accent], the server will restart! You can reconnect once it has finished restarting");
+            Log.info("Ending after next game");
             endNext = true;
         });
 
@@ -504,13 +500,26 @@ public class Base {
                     s.append(userInfo.admin ? "[A]" : "[P]");
                     s.append(' ');
                     s.append(userInfo.plainLastName());
-                    s.append('/');
+                    s.append('|');
                     s.append(userInfo.id);
-                    s.append('/');
+                    s.append('|');
                     s.append(userInfo.lastIP);
                     s.append('\n');
                 }
                 Log.info(s.toString());
+            }
+        });
+
+        handler.removeCommand("kick");
+        handler.register("kick", "Kick somebody off the server.", arg -> {
+            Player target = Groups.player.find(p -> p.uuid().equals(arg[0]));
+
+            if (target != null) {
+                Call.sendMessage("[scarlet]" + target.name() + "[scarlet] has been kicked by the server.");
+                target.kick(KickReason.kick);
+                Log.info("Player kicked");
+            } else {
+                Log.err("Player not found");
             }
         });
     }
@@ -527,6 +536,17 @@ public class Base {
                 player.sendMessage("[accent]History mode enabled. Click/tap a tile to see it's history");
             }
         };
+
+        handler.<Player>register("endnextgame", "[scarlet]Ends the game after this round is over (admin only)",
+                (args, player) -> {
+                    if (!player.admin) {
+                        player.sendMessage("[accent]Admin only!");
+                        return;
+                    }
+                    Call.sendMessage(
+                            "[scarlet]Server [accent]has called for a restart. [scarlet]AFTER THIS GAME[accent], the server will restart! You can reconnect once it has finished restarting");
+                    endNext = true;
+                });
 
         handler.<Player>register("history", "Enable history mode", (args, player) -> {
             historyCommand.apply(args).accept(player);
@@ -611,10 +631,6 @@ public class Base {
             player.sendMessage("[gold]http://apricotalliance.org");
         });
 
-        handler.<Player>register("uuid", "Prints your uuid", (args, player) -> {
-            player.sendMessage("[scarlet]" + player.uuid());
-        });
-
         handler.<Player>register("hud", "Toggle HUD (display/hide playtime and other info)", (args, player) -> {
 
             CustomPlayer cPly = uuidMapping.get(player.uuid());
@@ -630,32 +646,6 @@ public class Base {
 
         handler.<Player>register("kill", "[sky]Destroy yourself", (args, player) -> {
             player.unit().kill();
-        });
-
-        handler.<Player>register("tp", "[player/id]", "[sky]Teleport to player", (args, player) -> {
-            Player other = find(args, player, true);
-            if (other == null) {
-                if (Groups.player.isEmpty()) {
-                    player.sendMessage("No players to teleport to.");
-                    return;
-                }
-                StringBuilder s = new StringBuilder(
-                        "[accent]No player by name [white]" + args[0] + "[accent] or id [white]" + args[0]
-                                + "[accent].\n");
-                s.append("You are able to tp to the following players:");
-                for (Player ply : Groups.player) {
-                    s.append("\n[accent]Name: [white]" + ply.name + "[accent], ID: [white]" + ply.id);
-                }
-                player.sendMessage(s.toString());
-                return;
-            }
-            Call.effectReliable(Fx.teleportOut, player.x, player.y, 0, Color.white);
-            Call.effectReliable(Fx.teleportActivate, other.x, other.y, 0, Color.white);
-
-            Call.setPosition(player.con, other.x, other.y);
-
-            player.sendMessage("[accent]Tp'd you to [white]" + other.name);
-
         });
 
         Function<String[], Consumer<Player>> banList = args -> player -> {
@@ -784,27 +774,29 @@ public class Base {
                     unbanCommand.apply(args).accept(player);
                 });
 
-        handler.<Player>register("cr", "[scarlet]Code red, blocks all actions for 30 seconds", (args, player) -> {
-            if (!player.admin) {
-                player.sendMessage("[accent]Admin only!");
-                return;
-            }
-            if (codeRed) {
-                Call.sendMessage("[scarlet]Code red over");
-                codeRed = false;
-                return;
-            }
-            codeRed = true;
-            Call.sendMessage(
-                    player.name + " [scarlet]has called a code red! All actions are blocked for the next 30 seconds");
-            Time.runTask(60 * 30, () -> {
-                if (codeRed) {
-                    codeRed = false;
-                    Call.sendMessage("[scarlet]Code red over");
-                }
-            });
+        handler.<Player>register("cr", "[scarlet]Code red, blocks all actions for 30 seconds (admin only)",
+                (args, player) -> {
+                    if (!player.admin) {
+                        player.sendMessage("[accent]Admin only!");
+                        return;
+                    }
+                    if (codeRed) {
+                        Call.sendMessage("[scarlet]Code red over");
+                        codeRed = false;
+                        return;
+                    }
+                    codeRed = true;
+                    Call.sendMessage(
+                            player.name
+                                    + " [scarlet]has called a code red! All actions are blocked for the next 30 seconds");
+                    Time.runTask(60 * 30, () -> {
+                        if (codeRed) {
+                            codeRed = false;
+                            Call.sendMessage("[scarlet]Code red over");
+                        }
+                    });
 
-        });
+                });
 
         handler.<Player>register("js", "<script...>", "Run arbitrary javascript(admin only)", (arg, player) -> {
             if (!player.admin) {
@@ -838,7 +830,6 @@ public class Base {
             Log.warn("uuid mapping does not contain uuid " + uuid + "! Not saving data!");
             return;
         }
-        Log.info("Saving " + uuid + " data...");
         CustomPlayer cPly = uuidMapping.get(uuid);
         cPly.team = cPly.player.team();
         db.saveRow("mindustry_data", "uuid", uuid, new String[] { "playTime" },
