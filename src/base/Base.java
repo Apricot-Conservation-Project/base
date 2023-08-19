@@ -511,7 +511,7 @@ public class Base {
         });
 
         handler.removeCommand("kick");
-        handler.register("kick", "Kick somebody off the server.", arg -> {
+        handler.register("kick", "<player>", "Kick somebody off the server.", arg -> {
             Player target = Groups.player.find(p -> p.uuid().equals(arg[0]));
 
             if (target != null) {
@@ -521,6 +521,11 @@ public class Base {
             } else {
                 Log.err("Player not found");
             }
+        });
+
+        handler.removeCommand("say");
+        handler.register("say", "<message...>", "Send a arbitrary message.", arg -> {
+            Call.sendMessage(arg[0]);
         });
     }
 
