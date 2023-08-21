@@ -11,10 +11,9 @@ public class DBInterface {
     private PreparedStatement preparedStatement = null;
 
     public void connect(String db, String username, String password) {
-        // SQLite connection string
-        String url = "jdbc:mysql://127.0.0.1:3306/" + db + "?useSSL=false";
+        String url = "jdbc:mariadb://127.0.0.1:3306/" + db + "?useSSL=false";
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
+            Class.forName("org.mariadb.jdbc.Driver");
             conn = DriverManager.getConnection(url, username, password);
             Log.info("Connected to database successfully");
         } catch (SQLException | ClassNotFoundException e) {

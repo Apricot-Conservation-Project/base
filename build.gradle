@@ -24,7 +24,9 @@ ext{
 dependencies{
     compileOnly "com.github.Anuken.Arc:arc-core:$mindustryVersion"
     compileOnly "com.github.Anuken.Mindustry:core:$mindustryVersion"
-    implementation 'mysql:mysql-connector-java:8.0.12'
+    implementation('org.mariadb.jdbc:mariadb-java-client:3.1.0') {
+    	exclude group: 'com.github.waffle', module: 'waffle-jna'
+    }
 }
 
 
