@@ -2,7 +2,6 @@ package base;
 
 import arc.graphics.Color;
 import arc.struct.Seq;
-import arc.util.Strings;
 import arc.util.Time;
 import mindustry.content.Blocks;
 import mindustry.game.Team;
@@ -22,7 +21,7 @@ public class CustomPlayer {
     public boolean historyMode = false;
     public int lastvoteBan;
     public boolean destroyMode = false;
-    public String rawName;
+    protected String rawName;
     public Team team;
     public Seq<Unit> followers = new Seq<>();
     public boolean hudEnabled = true;
@@ -74,7 +73,7 @@ public class CustomPlayer {
     public void updateName() {
         String team = colorMapping.getOrDefault(player.team(), "[olive]");
         player.name = String.format("[accent]<%s%d[accent]>%s %s", rank(), secondaryRank(), team,
-                Strings.stripColors(this.rawName));
+                this.rawName);
     }
 
     public int secondaryRank() {
