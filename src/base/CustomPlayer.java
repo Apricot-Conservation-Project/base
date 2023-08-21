@@ -9,6 +9,7 @@ import mindustry.gen.Call;
 import mindustry.gen.Player;
 import mindustry.gen.Unit;
 
+import java.text.NumberFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -45,8 +46,13 @@ public class CustomPlayer {
     }
 
     public void showHud() {
+        int next = 10000 * (xp / 10000 + 1);
         Call.infoPopup(player.con,
-                "[accent]Play time: [scarlet]" + Base.formatTime(Duration.ofMinutes(playTime)) + "[accent].",
+                "[accent]Play time: [scarlet]" + Base.formatTime(Duration.ofMinutes(playTime)) + "[accent].\n" +
+                        "[accent]XP: <" + rank() + "[white]" + secondaryRank() + "[accent]> [scarlet]"
+                        + NumberFormat.getInstance().format(xp) + "[] / [scarlet]"
+                        + NumberFormat.getInstance().format(next) + "[] <" + rank(next) + "[white]"
+                        + secondaryRank(next) + "[accent]>",
                 55, 10, 90, 0, 100, 0);
     }
 
