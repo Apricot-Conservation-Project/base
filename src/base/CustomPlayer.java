@@ -110,25 +110,25 @@ public class CustomPlayer {
     public String rank(int of) {
         switch (of / 30000) {
             case 0:
-                return Blocks.duo.emoji();
+                return "[white]" + Blocks.duo.emoji();
             case 1:
-                return Blocks.arc.emoji();
+                return "[white]" + Blocks.arc.emoji();
             case 2:
-                return Blocks.hail.emoji();
+                return "[white]" + Blocks.hail.emoji();
             case 3:
-                return Blocks.lancer.emoji();
+                return "[white]" + Blocks.lancer.emoji();
             case 4:
-                return Blocks.fuse.emoji();
+                return "[white]" + Blocks.fuse.emoji();
             case 5:
-                return Blocks.ripple.emoji();
+                return "[white]" + Blocks.ripple.emoji();
             case 6:
-                return Blocks.cyclone.emoji();
+                return "[white]" + Blocks.cyclone.emoji();
             case 7:
-                return Blocks.tsunami.emoji();
+                return "[white]" + Blocks.tsunami.emoji();
             case 8:
-                return Blocks.swarmer.emoji();
+                return "[white]" + Blocks.swarmer.emoji();
             case 9:
-                return Blocks.foreshadow.emoji();
+                return "[white]" + Blocks.foreshadow.emoji();
             case 10:
                 return "[gold]" + Blocks.scorch.emoji();
             default:
