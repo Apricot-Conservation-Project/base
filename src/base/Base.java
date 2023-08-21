@@ -206,40 +206,11 @@ public class Base {
                     UnitTypes.omura).contains(event.unit.type)) {
                 CustomPlayer cPly = uuidMapping.get(event.player.uuid());
 
-                if (cPly.playTime < 600) {
+                if (cPly.playTime < 300) {
                     event.player.clearUnit();
-                    event.player.sendMessage("[accent]You need at least [scarlet]600[accent] minutes of playtime " +
-                            "before you can control a T5!");
+                    event.player.sendMessage(
+                            "[accent]You need at least [scarlet]5[accent] hours of playtime before you can control a T5!");
                     return;
-                }
-
-                if (seconds < cPly.bannedT5) {
-                    event.player.clearUnit();
-                    event.player.sendMessage("[accent]You killed a T5 too fast recently! " +
-                            "You are banned from controlling T5 units for [scarlet]" + (cPly.bannedT5 - seconds) +
-                            "[accent] more seconds!");
-                    return;
-                }
-                cPly.controlledT5 = seconds;
-            }
-        });
-
-        Events.on(EventType.UnitDestroyEvent.class, event -> {
-            if (Arrays.asList(UnitTypes.toxopid,
-                    UnitTypes.eclipse,
-                    UnitTypes.corvus,
-                    UnitTypes.oct,
-                    UnitTypes.reign,
-                    UnitTypes.omura).contains(event.unit.type) &&
-                    event.unit.isPlayer()) {
-                Player ply = event.unit.getPlayer();
-                CustomPlayer cPly = uuidMapping.get(ply.uuid());
-
-                long diff = seconds - cPly.controlledT5;
-                if (diff > 10 && diff < 240) {
-                    ply.sendMessage(
-                            "[scarlet]You killed the T5 too quickly! You are banned from controlling T5's for 5 minutes!");
-                    cPly.bannedT5 = (int) seconds + 3 * 5;
                 }
             }
         });
@@ -280,6 +251,7 @@ public class Base {
         Events.on(EventType.PlayerJoin.class, event -> {
             // Check if uuid already exists
             if (netServer.admins.isStrict()) {
+                // why is this atomic?? is each() parallel??
                 AtomicInteger count = new AtomicInteger();
                 Groups.player.each(player -> {
                     if (player.uuid().equals(event.player.uuid()) ||
@@ -307,10 +279,8 @@ public class Base {
 
             idMapping.put(event.player.id, event.player.uuid()); // For bans
 
-            int adminRank = 0;
-
             HashMap<String, Object> minEntries = db.loadRow("mindustry_data", "uuid", event.player.uuid());
-            adminRank = (int) minEntries.get("adminRank");
+            int adminRank = (int) minEntries.get("adminRank");
             if (adminRank != 0) {
                 event.player.admin = true;
                 Call.sendMessage("[royal]" + Strings.stripColors(event.player.name) + "[accent] has joined the game");
@@ -322,6 +292,8 @@ public class Base {
 
             cPly.playTime = (int) minEntries.get("playTime");
             cPly.hudEnabled = (boolean) minEntries.get("hudOn");
+            cPly.xp = (int) minEntries.get("xp");
+            cPly.wins = (int) minEntries.get("wins");
 
             if (cPly.hudEnabled)
                 cPly.showHud();
@@ -553,6 +525,14 @@ public class Base {
                     endNext = true;
                 });
 
+        handler.<Player>register("xp", "Display your current xp", (args, player) -> {
+            CustomPlayer cPly = uuidMapping.get(player.uuid());
+            int next = 10000 * (cPly.xp / 10000 + 1);
+            player.sendMessage(String.format(
+                    "[accent]Current XP: <%s[accent]%d> [scarlet]%d[]\n Next rank: <%s[accent]%d> [scarlet]%d[]!",
+                    cPly.rank(), cPly.secondaryRank(), cPly.xp, cPly.rank(next), cPly.secondaryRank(next), next));
+        });
+
         handler.<Player>register("history", "Enable history mode", (args, player) -> {
             historyCommand.apply(args).accept(player);
         });
@@ -628,12 +608,12 @@ public class Base {
             player.sendMessage(displayHistory(player.tileX(), player.tileY()));
         });
 
-        handler.<Player>register("discord", "Prints the discord link", (args, player) -> {
-            player.sendMessage("[purple]https://discord.gg/efRVE8s3Ne");
+        handler.<Player>register("discord", "Opens the discord link", (args, player) -> {
+            Call.openURI(player.con(), "https://discord.gg/efRVE8s3Ne");
         });
 
         handler.<Player>register("website", "Prints website link", (args, player) -> {
-            player.sendMessage("[gold]http://apricotalliance.org");
+            Call.openURI(player.con(), "http://apricotalliance.org");
         });
 
         handler.<Player>register("hud", "Toggle HUD (display/hide playtime and other info)", (args, player) -> {
@@ -837,7 +817,7 @@ public class Base {
         }
         CustomPlayer cPly = uuidMapping.get(uuid);
         cPly.team = cPly.player.team();
-        db.saveRow("mindustry_data", "uuid", uuid, new String[] { "playTime" },
-                new Object[] { cPly.playTime, });
+        db.saveRow("mindustry_data", "uuid", uuid, new String[] { "playTime", "xp", "wins" },
+                new Object[] { cPly.playTime, cPly.xp, cPly.wins });
     }
 }
