@@ -15,7 +15,6 @@ import java.time.Instant;
 import java.util.HashMap;
 
 public class CustomPlayer {
-
     public Player player;
     public int playTime;
     public boolean connected;
@@ -45,14 +44,14 @@ public class CustomPlayer {
         this.lastvoteBan = (int) Instant.now().getEpochSecond() - 60 * 5;
     }
 
-    public void showHud() {
+    protected void showHud(String with) {
         int next = 10000 * (xp / 10000 + 1);
         Call.infoPopup(player.con,
                 "[accent]Play time: [scarlet]" + Base.formatTime(Duration.ofMinutes(playTime)) + "[accent].\n" +
                         "[accent]XP: <" + rank() + "[white]" + secondaryRank() + "[accent]> [scarlet]"
                         + NumberFormat.getInstance().format(xp) + "[] / [scarlet]"
                         + NumberFormat.getInstance().format(next) + "[] <" + rank(next) + "[white]"
-                        + secondaryRank(next) + "[accent]>",
+                        + secondaryRank(next) + "[accent]>" + "\n" + with,
                 55, 10, 90, 0, 100, 0);
     }
 

@@ -17,6 +17,7 @@ import mindustry.net.Packets;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.NumberFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -27,10 +28,15 @@ import java.util.function.Function;
 import static mindustry.Vars.*;
 
 public class Base {
-    public Base(DBInterface db) {
+    public interface HUDString {
+        String hud();
+    }
+
+    public Base(DBInterface db, HUDString hud) {
         // possible to put init code here,
         // but it turns out command registration happens before init().
         this.db = db;
+        this.hud = hud;
     }
 
     public static class Endgame {
@@ -62,20 +68,21 @@ public class Base {
     @Nullable
     public static Player find(String search, Player exclude, Boolean connected) {
         Player target = null;
+        var exC = uuidMapping.get(exclude.uuid());
         try {
             target = getOffinePlayer(Integer.parseInt(search.replace("#", "")));
         } catch (Exception _e) {
             String search_name = Strings.stripColors(search.replace("@", ""));
             for (Player player : Groups.player) {
                 // c smh
-                if (player != exclude && player.plainName().compareToIgnoreCase(search_name) == 0) {
+                if (player != exclude && uuidMapping.get(player.uuid()).rawName.compareToIgnoreCase(search_name) == 0) {
                     target = player;
                     break;
                 }
             }
             if (connected == false) {
                 for (var player : recentlyDisconnect.entrySet()) {
-                    if (player.getKey() != exclude.plainName()
+                    if (player.getKey() != exC.rawName
                             && player.getKey().compareToIgnoreCase(search_name) == 0) {
                         Log.info(idMapping.get(player.getValue()));
                         target = uuidMapping.get(idMapping.get(player.getValue())).player;
@@ -107,7 +114,7 @@ public class Base {
                 hours, hours != 1 ? "s" : "", mins, mins != 1 ? "s" : "");
     }
 
-    public long seconds;
+    public static long seconds;
 
     private final static float serverCloseTime = 60f * 2f;
     private final static int announcementTime = 60 * 60 * 5, brokenResetTime = 60 * 120, minuteTime = 60 * 60;
@@ -116,6 +123,8 @@ public class Base {
     private final Interval interval = new Interval(10);
 
     private DBInterface db;
+
+    private HUDString hud;
 
     // maps name -> id
     public static final HashMap<String, Integer> recentlyDisconnect = new HashMap<>();
@@ -175,7 +184,7 @@ public class Base {
                     cPly.playTime += 1;
                     try {
                         if (cPly.hudEnabled)
-                            cPly.showHud();
+                            cPly.showHud(hud.hud());
                     } catch (Exception e) {
                         Log.err("Play time error, player object: " + player + "\n" +
                                 "uuidMapping of object: " + uuidMapping.get(player.uuid()) + "\n" +
@@ -296,15 +305,16 @@ public class Base {
             cPly.wins = (int) minEntries.get("wins");
 
             if (cPly.hudEnabled)
-                cPly.showHud();
+                cPly.showHud(hud.hud());
         });
 
         Events.on(EventType.PlayerLeave.class, event -> {
-            uuidMapping.get(event.player.uuid()).connected = false;
+            var cPly = uuidMapping.get(event.player.uuid());
+            cPly.connected = false;
             savePlayerData(event.player.uuid());
-            if (recentlyDisconnect.put(Strings.stripColors(event.player.name), event.player.id) == null)
+            if (recentlyDisconnect.put(cPly.rawName, event.player.id) == null)
                 Time.runTask(60 * 60 * 5, () -> {
-                    recentlyDisconnect.remove(Strings.stripColors(event.player.name));
+                    recentlyDisconnect.remove(cPly.rawName);
                 });
         });
 
@@ -316,7 +326,8 @@ public class Base {
                 Seq<Tile> tiles = event.tile.getLinkedTiles(new Seq<>());
                 for (Tile t : tiles) {
                     historyHandler.addEntry(t.x, t.y,
-                            (event.breaking ? "[red] - " : "[green] + ") + event.unit.getPlayer().name + "[accent]:" +
+                            (event.breaking ? "[red] - " : "[green] + ")
+                                    + uuidMapping.get(event.unit.getPlayer().uuid()).rawName + "[accent]:" +
                                     (event.breaking ? "[scarlet] broke [accent]this tile"
                                             : "[lime] placed [accent]" +
                                                     event.tile.block().name));
@@ -333,11 +344,12 @@ public class Base {
             if (event.player == null || event.tile == null)
                 return;
             Seq<Tile> tiles = event.tile.tile.getLinkedTiles(new Seq<>());
+            var cPly = uuidMapping.get(event.player.uuid());
             if (event.tile.block() instanceof PowerNode) {
                 for (Tile t : tiles) {
                     try {
                         historyHandler.addEntry(t.x, t.y,
-                                "[orange] ~ [accent]" + event.player.name + "[accent]:"
+                                "[orange] ~ [accent]" + cPly.rawName + "[accent]:"
                                         + (!(event.value instanceof Point2)
                                                 && !event.tile.power.links.contains((int) event.value)
                                                         ? "[scarlet] disconnected"
@@ -345,14 +357,14 @@ public class Base {
                     } catch (ClassCastException e) {
                         // power node double click
                         historyHandler.addEntry(t.x, t.y,
-                                "[orange] ~ [accent]" + event.player.name
+                                "[orange] ~ [accent]" + cPly.rawName
                                         + "[accent]:[purple] did strange things[accent] to this tile (pls tell me what caused this)");
                     }
                 }
             } else {
                 for (Tile t : tiles) {
                     historyHandler.addEntry(t.x, t.y,
-                            "[orange] ~ [accent]" + event.player.name + "[accent]:" +
+                            "[orange] ~ [accent]" + cPly.rawName + "[accent]:" +
                                     " changed config"
                                     + (event.value == null ? " to default" : " to " + event.value));
                 }
@@ -431,7 +443,7 @@ public class Base {
 
             if (!(cPly.player == null)) {
                 cPly.playTime = newTime;
-                cPly.showHud();
+                cPly.showHud(hud.hud());
             }
             Log.info("Set uuid " + args[0] + " to have play time of " + args[1] + " minutes");
 
@@ -529,8 +541,9 @@ public class Base {
             CustomPlayer cPly = uuidMapping.get(player.uuid());
             int next = 10000 * (cPly.xp / 10000 + 1);
             player.sendMessage(String.format(
-                    "[accent]Current XP: <%s[accent]%d> [scarlet]%d[]\n Next rank: <%s[accent]%d> [scarlet]%d[]!",
-                    cPly.rank(), cPly.secondaryRank(), cPly.xp, cPly.rank(next), cPly.secondaryRank(next), next));
+                    "[accent]Current XP: <%s[white]%d[accent]> [scarlet]%s[]\n Next rank: <%s[white]%d[accent]> [scarlet]%s[]!",
+                    cPly.rank(), cPly.secondaryRank(), NumberFormat.getInstance().format(cPly.xp), cPly.rank(next),
+                    cPly.secondaryRank(next), NumberFormat.getInstance().format(next)));
         });
 
         handler.<Player>register("history", "Enable history mode", (args, player) -> {
@@ -617,14 +630,13 @@ public class Base {
         });
 
         handler.<Player>register("hud", "Toggle HUD (display/hide playtime and other info)", (args, player) -> {
-
             CustomPlayer cPly = uuidMapping.get(player.uuid());
             player.sendMessage(
                     "[accent]Hud " + (cPly.hudEnabled ? "[scarlet]disabled. [accent]Hud will clear in 1 minute"
                             : "[green]enabled."));
             cPly.hudEnabled = !cPly.hudEnabled;
             if (cPly.hudEnabled)
-                cPly.showHud();
+                cPly.showHud(hud.hud());
 
             db.saveRow("mindustry_data", "uuid", player.uuid(), "hudOn", cPly.hudEnabled);
         });
