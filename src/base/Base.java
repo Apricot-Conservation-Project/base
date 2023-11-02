@@ -301,7 +301,8 @@ public class Base {
 
             cPly.playTime = (int) minEntries.get("playTime");
             cPly.hudEnabled = (boolean) minEntries.get("hudOn");
-            cPly.xp = (int) minEntries.get("xp");
+            cPly.survXp = (int) minEntries.get("survXp");
+            cPly.plagueXp = (int) minEntries.get("plagueXp");
             cPly.wins = (int) minEntries.get("wins");
 
             if (cPly.hudEnabled)
@@ -539,11 +540,11 @@ public class Base {
 
         handler.<Player>register("xp", "Display your current xp", (args, player) -> {
             CustomPlayer cPly = uuidMapping.get(player.uuid());
-            int next = 10000 * (cPly.xp / 10000 + 1);
+            int next = 10000 * (cPly.xp() / 10000 + 1);
             player.sendMessage(String.format(
-                    "[accent]Current XP: <%s[white]%d[accent]> [scarlet]%s[]\n Next rank: <%s[white]%d[accent]> [scarlet]%s[]!",
-                    cPly.rank(), cPly.secondaryRank(), NumberFormat.getInstance().format(cPly.xp), cPly.rank(next),
-                    cPly.secondaryRank(next), NumberFormat.getInstance().format(next)));
+                    "[accent]Current XP: %s [scarlet]%s[]\n Next rank: %s [scarlet]%s[]!",
+                    cPly.rank(), NumberFormat.getInstance().format(cPly.xp()), cPly.rank(next),
+                    NumberFormat.getInstance().format(next)));
         });
 
         handler.<Player>register("history", "Enable history mode", (args, player) -> {
@@ -829,7 +830,7 @@ public class Base {
         }
         CustomPlayer cPly = uuidMapping.get(uuid);
         cPly.team = cPly.player.team();
-        db.saveRow("mindustry_data", "uuid", uuid, new String[] { "playTime", "xp", "wins" },
-                new Object[] { cPly.playTime, cPly.xp, cPly.wins });
+        db.saveRow("mindustry_data", "uuid", uuid, new String[] { "playTime", "plagueXp", "survXp", "wins" },
+                new Object[] { cPly.playTime, cPly.plagueXp, cPly.survXp, cPly.wins });
     }
 }
