@@ -5,10 +5,15 @@ import arc.graphics.Color;
 import arc.math.geom.Point2;
 import arc.struct.Seq;
 import arc.util.*;
+import arc.util.serialization.JsonReader;
+import arc.util.serialization.JsonValue;
+import arc.util.serialization.SerializationException;
+import arc.util.serialization.JsonValue.ValueType;
 import mindustry.content.Fx;
 import mindustry.content.UnitTypes;
 import mindustry.game.*;
 import mindustry.gen.*;
+import mindustry.io.JsonIO;
 import mindustry.net.Administration.PlayerInfo;
 import mindustry.net.Packets.KickReason;
 import mindustry.world.Tile;
@@ -512,6 +517,27 @@ public class Base {
         handler.register("say", "<message...>", "Send a arbitrary message.", arg -> {
             Call.sendMessage(arg[0]);
         });
+
+        handler.removeCommand("rules");
+        // love me a stringly type
+        handler.register("rules", "[value...]", "List, remove or add global rules.", arg -> {
+            if (arg.length == 1) {
+                Core.settings.put("globalrules", arg[0]);
+                try {
+                    JsonValue ok = JsonIO.json.fromJson(null, arg[0]);
+                    if (ok == null) {
+                        Log.err("no!");
+                        return;
+                    }
+                } catch (SerializationException e) {
+                    Log.err("no!");
+                    return;
+                }
+                Call.setRules(state.rules);
+            }
+            Log.info(Core.settings.getString("globalrules"));
+        });
+
     }
 
     // register commands that player can invoke in-game
