@@ -1,36 +1,48 @@
 package base;
 
-import arc.*;
-import arc.graphics.Color;
-import arc.math.geom.Point2;
-import arc.struct.Seq;
-import arc.util.*;
-import arc.util.serialization.JsonReader;
-import arc.util.serialization.JsonValue;
-import arc.util.serialization.SerializationException;
-import arc.util.serialization.JsonValue.ValueType;
-import mindustry.content.Fx;
-import mindustry.content.UnitTypes;
-import mindustry.game.*;
-import mindustry.gen.*;
-import mindustry.io.JsonIO;
-import mindustry.net.Administration.PlayerInfo;
-import mindustry.net.Packets.KickReason;
-import mindustry.world.Tile;
-import mindustry.world.blocks.power.PowerNode;
-import mindustry.net.Packets;
+import static mindustry.Vars.maps;
+import static mindustry.Vars.mods;
+import static mindustry.Vars.netServer;
+import static mindustry.Vars.state;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static mindustry.Vars.*;
+import arc.Core;
+import arc.Events;
+import arc.graphics.Color;
+import arc.math.geom.Point2;
+import arc.struct.Seq;
+import arc.util.CommandHandler;
+import arc.util.Interval;
+import arc.util.Log;
+import arc.util.Nullable;
+import arc.util.Strings;
+import arc.util.Time;
+import arc.util.serialization.JsonValue;
+import arc.util.serialization.SerializationException;
+import mindustry.content.Fx;
+import mindustry.content.UnitTypes;
+import mindustry.game.EventType;
+import mindustry.gen.Call;
+import mindustry.gen.Groups;
+import mindustry.gen.Player;
+import mindustry.io.JsonIO;
+import mindustry.net.Administration.PlayerInfo;
+import mindustry.net.Packets;
+import mindustry.net.Packets.KickReason;
+import mindustry.world.Tile;
+import mindustry.world.blocks.power.PowerNode;
 
 public class Base {
     public interface HUDString {
@@ -46,6 +58,23 @@ public class Base {
 
     public static class Endgame {
 
+    }
+
+    static String formatSeq(Seq<?> s) {
+        if (s.size == 0)
+            return "[]";
+        var items = s.items;
+        StringBuilder buffer = new StringBuilder(32);
+        buffer.append("[\"");
+        buffer.append(items[0]);
+        buffer.append('"');
+        for (int i = 1; i < s.size; i++) {
+            buffer.append(",\"");
+            buffer.append(items[i]);
+            buffer.append("\"");
+        }
+        buffer.append(']');
+        return buffer.toString();
     }
 
     public static Player getOffinePlayer(Integer id) {
@@ -536,6 +565,20 @@ public class Base {
                 Call.setRules(state.rules);
             }
             Log.info(Core.settings.getString("globalrules"));
+        });
+
+        handler.removeCommand("info");
+        handler.register("trace", "<IP/UUID/name...>", "Find player info. Dig up dat dirt.", arg -> {
+            var info = netServer.admins.findByName(arg[0]);
+            StringBuilder s = new StringBuilder();
+            for (PlayerInfo i : info) {
+                s.append(String.format(
+                        "{\"i\":\"%s\",\"ln\":\"%s\",\"lp\":\"%s\",\"is\":%s,\"ns\":%s,\"t\":%d,\"a\":%s}\n", i.id,
+                        i.lastName,
+                        i.lastIP,
+                        formatSeq(i.ips), formatSeq(i.names), i.timesJoined, i.admin == true ? "true" : "false"));
+            }
+            Log.info(s);
         });
 
     }
