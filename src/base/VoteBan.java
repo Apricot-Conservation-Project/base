@@ -47,7 +47,7 @@ public class VoteBan {
         });
     }
 
-    private static final Pattern periodPattern = Pattern.compile("([0-9]+)([mhd])");
+    private static final Pattern periodPattern = Pattern.compile("([0-9]+)([hdwy])?");
 
     static int parseTime(String time) throws NumberFormatException {
         try {
@@ -57,6 +57,10 @@ public class VoteBan {
             while (matcher.find()) {
                 int num = Integer.parseInt(matcher.group(1));
                 String typ = matcher.group(2);
+                if (typ == null) {
+                    then = then.plus(Duration.ofMinutes(num));
+                    continue;
+                }
                 switch (typ) {
                     case "m":
                         then = then.plus(Duration.ofMinutes(num));
@@ -67,11 +71,16 @@ public class VoteBan {
                     case "d":
                         then = then.plus(Duration.ofDays(num));
                         break;
+                    case "w":
+                        then = then.plus(Duration.ofDays(num * 7));
+                        break;
+                    case "y":
+                        then = then.plus(Duration.ofDays(num * 365));
                 }
             }
-            return Mathf.clamp((int) then.toMinutes(), 0, decade);
+            return Math.min((int) then.toMinutes(), decade);
         } catch (DateTimeParseException _e) {
-            return Mathf.clamp(Integer.parseInt(time), 0, decade);
+            return Math.min(Integer.parseInt(time), decade);
         }
     }
 
