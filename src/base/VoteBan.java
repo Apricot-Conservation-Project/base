@@ -1,6 +1,5 @@
 package base;
 
-import arc.math.Mathf;
 import arc.util.Log;
 import arc.util.Time;
 import mindustry.gen.Call;
@@ -125,10 +124,7 @@ public class VoteBan {
 
     }
 
-    public void newBan(String uuid, String ip, int minutes, String reason, Player voterPly) {
-        Player p = uuidMapping.get(uuid).player;
-        String name = p.plainName();
-
+    public String newBan(String name, String uuid, String ip, int minutes, String reason, Player voterPly) {
         if (minutes == 0) {
             String msg = " .\nReason: [white]"
                     + reason;
@@ -138,9 +134,7 @@ public class VoteBan {
                 msg = "[accent]Vote passed. [white]" + name + "[accent] has been kicked " + name + msg;
             }
             Call.sendMessage(msg);
-            p.kick("[accent]Kicked. Reason: " + reason);
-
-            return;
+            return "[accent]Kicked. Reason: " + reason;
         }
         int timeLength = (int) (minutes * 60 + Instant.now().getEpochSecond());
 
@@ -160,8 +154,14 @@ public class VoteBan {
         }
         Call.sendMessage(msg);
 
-        uuidMapping.get(uuid).player.con.kick("[accent]You are banned for another [scarlet]" +
-                Base.formatTime(Duration.ofMinutes(minutes)) + "[accent].\nReason: [white]" + reason);
+        return "[accent]You are banned for another [scarlet]" +
+                Base.formatTime(Duration.ofMinutes(minutes)) + "[accent].\nReason: [white]" + reason;
+    }
+
+    public void newBan(String uuid, String ip, int minutes, String reason, Player voterPly) {
+        Player p = uuidMapping.get(uuid).player;
+        String name = p.plainName();
+        p.kick(newBan(name, uuid, ip, minutes, reason, voterPly));
     }
 
     public String startVoteBan(String uuid, String length, String reason, String voter) {

@@ -841,6 +841,27 @@ public class Base {
                     unbanCommand.apply(args).accept(player);
                 });
 
+        handler.<Player>register("ban", "[name/ip] [length] [reason...]", "Ban a player (admin only)",
+                (args, player) -> {
+                    var x = "(\\d{1,2}|(0|1)\\" + "d{2}|2[0-4]\\d|25[0-5])";
+                    if (args[0].matches(
+                            x + "\\." + x + "\\." + x + "\\." + x)) {
+                        var info = netServer.admins.findByIPs(args[0]);
+                        for (PlayerInfo p : info) {
+                            voteBan.newBan(p.lastName, p.id, p.ips.first(), VoteBan.parseTime(args[1]), args[2],
+                                    player);
+                        }
+                    } else {
+                        var info = netServer.admins.findByName(args[0]);
+                        if (info.size > 1) {
+                            player.sendMessage("[scarlet]multiple candidates. please use ip addr");
+                            return;
+                        }
+                        var p = info.first();
+                        voteBan.newBan(p.lastName, p.id, p.ips.first(), VoteBan.parseTime(args[1]), args[2], player);
+                    }
+                });
+
         handler.<Player>register("cr", "[scarlet]Code red, blocks all actions for 30 seconds (admin only)",
                 (args, player) -> {
                     if (!player.admin) {
