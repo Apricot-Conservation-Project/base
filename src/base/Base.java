@@ -34,6 +34,7 @@ import arc.util.serialization.SerializationException;
 import mindustry.content.Fx;
 import mindustry.content.UnitTypes;
 import mindustry.game.EventType;
+import mindustry.game.Team;
 import mindustry.gen.Call;
 import mindustry.gen.Groups;
 import mindustry.gen.Player;
@@ -609,11 +610,39 @@ public class Base {
 
         handler.<Player>register("xp", "Display your current xp", (args, player) -> {
             CustomPlayer cPly = uuidMapping.get(player.uuid());
-            int next = 10000 * (cPly.xp() / 10000 + 1);
+            int x = cPly.prestige() ? (cPly.plague() ? CustomPlayer.worldRank : CustomPlayer.hordeRank) : 30000;
+            int next = (x * (cPly.xp() / x + 1));
             player.sendMessage(String.format(
                     "[accent]Current XP: %s [scarlet]%s[]\n Next rank: %s [scarlet]%s[]!",
                     cPly.rank(), NumberFormat.getInstance().format(cPly.xp()), cPly.rank(next),
                     NumberFormat.getInstance().format(next)));
+        });
+
+        handler.<Player>register("strip", "[to]", "Reduce your xp", (args, player) -> {
+            CustomPlayer cPly = uuidMapping.get(player.uuid());
+            int x;
+            try {
+                x = Integer.parseInt(args[0]);
+            } catch (Exception e) {
+                player.sendMessage("not number");
+                return;
+            }
+            if (player.admin) {
+                if (cPly.team == Team.malis)
+                    cPly.plagueXp = x;
+                else
+                    cPly.survXp = x;
+            } else {
+                if (cPly.team == Team.malis) {
+                    if (cPly.plagueXp > x)
+                        cPly.plagueXp = x;
+                } else if (cPly.survXp > x)
+                    cPly.survXp = x;
+            }
+            cPly.updateName();
+            player.sendMessage(String.format(
+                    "[accent]%s [scarlet]%s[]",
+                    cPly.rank(), NumberFormat.getInstance().format(cPly.xp())));
         });
 
         handler.<Player>register("history", "Enable history mode", (args, player) -> {

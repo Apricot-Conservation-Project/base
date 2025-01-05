@@ -40,8 +40,9 @@ public class CustomPlayer {
 
     protected void showHud(String with) {
         if (player.team() == Team.blue) {
-        	Call.infoPopup(player.con, "[accent]Play time: [scarlet]" + Base.formatTime(Duration.ofMinutes(playTime)) + "[accent].\n" + with, 55, 10, 90, 0, 100, 0);
-        	return;
+            Call.infoPopup(player.con, "[accent]Play time: [scarlet]" + Base.formatTime(Duration.ofMinutes(playTime))
+                    + "[accent].\n" + with, 55, 10, 90, 0, 100, 0);
+            return;
         }
         int next = 10000 * (xp() / 10000 + 1);
         Call.infoPopup(player.con,
@@ -75,7 +76,7 @@ public class CustomPlayer {
     public void updateName() {
         if (player.team() == Team.blue) {
             player.name = "[royal]" + rawName;
-        } else if (player.team() == Team.malis) {
+        } else if (plague()) {
             player.name = rank() + "[scarlet]" + " " + rawName;
         } else {
             player.name = rank() + "[olive]" + " " + rawName;
@@ -87,7 +88,7 @@ public class CustomPlayer {
     }
 
     public boolean plague() {
-        return this.player.team() == Team.malis;
+        return player.team() == Team.malis;
     }
 
     public int xp() {
@@ -113,10 +114,14 @@ public class CustomPlayer {
         } else {
             player.sendMessage(message);
         }
-        if (((xp() - add) / 10000) != xp() / 10000) {
+        if (((xp() - add) / 10000) != xp() / 10000 && !prestige()) {
             Call.infoMessage(player.con(), "[gold]You ranked up to [gold]" + rank());
             updateName();
         }
+    }
+
+    public boolean prestige() {
+        return xp() >= (plague() ? worldRank : hordeRank);
     }
 
     public void reset() {
@@ -187,7 +192,7 @@ public class CustomPlayer {
             default:
                 return String.format(
                         "[accent]<[#ce9153]W[#cc8a50]o[#ca834d]r[#c87c4a]l[#c67547]d[#c46e44] [#c26741]B[#c0603e]u[#be593b]r[#bc5238]n[#b64230]er[white]%d[accent]>",
-                        ((of - 750000) / 30000) + 1);
+                        of / (30000 * 25));
         }
     }
 
@@ -224,14 +229,23 @@ public class CustomPlayer {
             default:
                 return String.format(
                         "[accent]<[#a3e3d3]H[#a3e2cb]o[#a3e1c3]r[#a3e0bb]d[#a3dfb3]e[#a3deab] [#a3dda3]S[#a3dc9b]l[#a3db93]a[#a3da8b]y[#a1d073]er[white]%d[accent]>",
-                        ((of - 420000) / 30000) + 1);
+                        of / (30000 * 14));
         }
     }
 
+    public static final int hordeRank = 30000 * 14;
+    public static final int worldRank = 30000 * 25;
+
+    public boolean isHordeSlayer() {
+        return survXp > hordeRank;
+    }
+
+    public boolean isWorldBurner() {
+        return plagueXp > worldRank;
+    }
+
     public String rank(int of) {
-        if (player.team() == Team.malis)
-            return plagueRank(of);
-        return survRank(of);
+        return plague() ? plagueRank(of) : survRank(of);
     }
 
 }
