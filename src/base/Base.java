@@ -465,14 +465,6 @@ public class Base {
 
         });
 
-        handler.register("proliferate", "proliferates the db with latest ips (one time)", args -> {
-            netServer.admins.playerInfo.iterator().forEach(x -> {
-                db.customUpdate(
-                        "UPDATE mindustry_data SET ip = INET_ATON(?) where uuid = ?",
-                        new Object[] { x.value.lastIP, x.key });
-            });
-        });
-
         handler.register("endnextgame", "Ends the game after this round is over", args -> {
             Call.sendMessage(
                     "[scarlet]Server [accent]has called for a restart. [scarlet]AFTER THIS GAME[accent], the server will restart! You can reconnect once it has finished restarting");
