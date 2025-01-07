@@ -248,4 +248,12 @@ public class CustomPlayer {
         return plague() ? plagueRank(of) : survRank(of);
     }
 
+    public void save(DBInterface db) {
+        team = player.team();
+        db.saveRow("mindustry_data", "uuid", player.uuid(),
+                new String[] { "playTime", "plagueXp", "survXp", "wins" },
+                new Object[] { playTime, plagueXp, survXp, wins });
+
+    }
+
 }

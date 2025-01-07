@@ -324,15 +324,14 @@ public class Base {
             idMapping.put(event.player.id, event.player.uuid()); // For bans
 
             HashMap<String, Object> minEntries = db.loadRow("mindustry_data", "uuid", event.player.uuid());
-            int adminRank = (int) minEntries.get("adminRank");
-            if (adminRank != 0) {
-                event.player.admin = true;
+            if (event.player.admin) {
                 Call.sendMessage("[royal]" + Strings.stripColors(event.player.name) + "[accent] has joined the game");
             }
 
             // Save name to database
-
-            db.saveRow("mindustry_data", "uuid", event.player.uuid(), "latestName", event.player.name);
+            db.customUpdate(
+                    "UPDATE mindustry_data SET latestName = ?, ip = INET_ATON(?) where uuid = ?",
+                    new Object[] { event.player.name, event.player.ip(), event.player.uuid() });
 
             cPly.playTime = (int) minEntries.get("playTime");
             cPly.hudEnabled = (boolean) minEntries.get("hudOn");
@@ -441,25 +440,6 @@ public class Base {
 
     // register commands that run on the server
     public void register_server(CommandHandler handler) {
-        handler.register("setadmin", "<uuid> <rank>", "Set the admin rank of a player", args -> {
-            int newRank;
-            try {
-                newRank = Integer.parseInt(args[1]);
-            } catch (NumberFormatException e) {
-                Log.info("Invalid rank input '" + args[1] + "'");
-                return;
-            }
-            if (!db.hasRow("mindustry_data", "uuid", args[0])) {
-                Log.info("Invalid uuid: " + args[0]);
-                return;
-            }
-
-            db.saveRow("mindustry_data", "uuid", args[0], "adminRank", newRank);
-
-            Log.info("Set uuid " + args[0] + " to have adminRank of " + args[1]);
-
-        });
-
         handler.register("setplaytime", "<uuid> <playtime>", "Set the play time of a player", args -> {
             int newTime;
             try {
@@ -483,6 +463,14 @@ public class Base {
             }
             Log.info("Set uuid " + args[0] + " to have play time of " + args[1] + " minutes");
 
+        });
+
+        handler.register("proliferate", "proliferates the db with latest ips (one time)", args -> {
+            netServer.admins.playerInfo.iterator().forEach(x -> {
+                db.customUpdate(
+                        "UPDATE mindustry_data SET ip = INET_ATON(?) where uuid = ?",
+                        new Object[] { x.value.lastIP, x.key });
+            });
         });
 
         handler.register("endnextgame", "Ends the game after this round is over", args -> {
@@ -947,9 +935,6 @@ public class Base {
             Log.warn("uuid mapping does not contain uuid " + uuid + "! Not saving data!");
             return;
         }
-        CustomPlayer cPly = uuidMapping.get(uuid);
-        cPly.team = cPly.player.team();
-        db.saveRow("mindustry_data", "uuid", uuid, new String[] { "playTime", "plagueXp", "survXp", "wins" },
-                new Object[] { cPly.playTime, cPly.plagueXp, cPly.survXp, cPly.wins });
+        uuidMapping.get(uuid).save(db);
     }
 }

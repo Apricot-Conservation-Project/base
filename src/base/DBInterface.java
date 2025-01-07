@@ -4,11 +4,11 @@ import arc.util.Log;
 
 import java.sql.*;
 import java.util.HashMap;
+import java.util.stream.Stream;
+import java.util.Arrays;
 
 public class DBInterface {
     public Connection conn = null;
-
-    private PreparedStatement preparedStatement = null;
 
     public void connect(String db, String username, String password) {
         String url = "jdbc:mariadb://127.0.0.1:3306/" + db + "?useSSL=false";
@@ -31,7 +31,7 @@ public class DBInterface {
             sql += keys[i] + " = ?" + (i < keys.length - 1 ? " AND " : "");
         }
         try {
-            preparedStatement = conn.prepareStatement(sql);
+            var preparedStatement = conn.prepareStatement(sql);
             for (int i = 0; i < vals.length; i++) {
                 preparedStatement.setObject(i + 1, vals[i]);
             }
@@ -58,7 +58,7 @@ public class DBInterface {
         }
         sql += keyString + ") VALUES(" + valString + ")";
         try {
-            preparedStatement = conn.prepareStatement(sql);
+            var preparedStatement = conn.prepareStatement(sql);
             for (int i = 0; i < vals.length; i++) {
                 preparedStatement.setObject(i + 1, vals[i]);
             }
@@ -84,7 +84,7 @@ public class DBInterface {
         }
 
         try {
-            preparedStatement = conn.prepareStatement(sql);
+            var preparedStatement = conn.prepareStatement(sql);
             for (int i = 0; i < vals.length; i++) {
                 preparedStatement.setObject(i + 1, vals[i]);
             }
@@ -125,18 +125,7 @@ public class DBInterface {
         for (int i = 0; i < searchKeys.length; i++) {
             sql += searchKeys[i] + " = ?" + (i < searchKeys.length - 1 ? " AND " : "");
         }
-        try {
-            preparedStatement = conn.prepareStatement(sql);
-            for (int i = 0; i < keys.length; i++) {
-                preparedStatement.setObject(i + 1, vals[i]);
-            }
-            for (int i = 0; i < searchKeys.length; i++) {
-                preparedStatement.setObject(i + keys.length + 1, searchVals[i]);
-            }
-            preparedStatement.executeUpdate();
-        } catch (SQLException e) {
-            Log.err(e);
-        }
+        customUpdate(sql, Stream.concat(Arrays.stream(vals), Arrays.stream(searchVals)).toArray(Object[]::new));
 
     }
 
@@ -159,13 +148,27 @@ public class DBInterface {
         }
     }
 
+    public void customUpdate(String sql, Object[] vals) {
+        try {
+            var stmt = conn.prepareStatement(sql);
+            for (int i = 0; i < vals.length; i++) {
+                stmt.setObject(i + 1, vals[i]);
+            }
+            stmt.executeUpdate();
+            stmt.close();
+
+        } catch (SQLException e) {
+            Log.err(e);
+        }
+    }
+
     // Large scale modifications
 
     public void setColumn(String table, String col, Object value) {
         // Sets an entire column to the provided value
         try {
             String sql = "UPDATE " + table + " SET " + col + " = ?";
-            preparedStatement = conn.prepareStatement(sql);
+            var preparedStatement = conn.prepareStatement(sql);
             preparedStatement.setObject(1, value);
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
