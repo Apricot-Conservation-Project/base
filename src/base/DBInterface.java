@@ -82,6 +82,7 @@ public class DBInterface {
         for (int i = 0; i < keys.length; i++) {
             sql += keys[i] + " = ?" + (i < keys.length - 1 ? " AND " : "");
         }
+        Log.debug(sql);
 
         try {
             var preparedStatement = conn.prepareStatement(sql);
@@ -98,6 +99,7 @@ public class DBInterface {
         } catch (SQLException e) {
             Log.err(e);
         }
+        Log.debug(returnedVals);
 
         return returnedVals;
 
